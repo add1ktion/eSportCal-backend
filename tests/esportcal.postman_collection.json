@@ -1,0 +1,71 @@
+{
+  "info": {
+    "_postman_id": "fd808475-c293-4d0f-9ac7-7e0c6f7ad6e6",
+    "name": "eSportCal",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53150084"
+  },
+  "item": [
+    {
+      "name": "Get Upcoming Matches",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// 1. Verify the HTTP Status is 200 OK",
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "// 2. Verify the response time is acceptable (< 1.5 seconds)",
+              "pm.test(\"Response time is less than 1500ms\", function () {",
+              "    pm.expect(pm.response.responseTime).to.be.below(1500);",
+              "});",
+              "",
+              "// 3. Verify the response is a clean JSON array",
+              "pm.test(\"Response should be a valid JSON array\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData).to.be.an(\"array\");",
+              "});",
+              "",
+              "// 4. Verify the data schema (checks if our mapping works)",
+              "pm.test(\"Matches in array contain all required MVP fields\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    if (jsonData.length > 0) {",
+              "        var firstMatch = jsonData[0];",
+              "        pm.expect(firstMatch).to.have.property(\"id\");",
+              "        pm.expect(firstMatch).to.have.property(\"name\");",
+              "        pm.expect(firstMatch).to.have.property(\"status\");",
+              "        pm.expect(firstMatch).to.have.property(\"game\");",
+              "        pm.expect(firstMatch).to.have.property(\"teams\");",
+              "        pm.expect(firstMatch.teams).to.be.an(\"array\");",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:5001/api/matches",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5001",
+          "path": [
+            "api",
+            "matches"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

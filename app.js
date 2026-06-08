@@ -3,33 +3,39 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 require('dotenv').config();
-require('./config');
-require('./db'); // Connect to PostgreSQL
+require('./db');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Test route
 app.get('/', (req, res) => {
     res.send('eSportCal API is running...');
 });
 
-// Proxy route to PandaScore CSGO matches
+// Proxy route fetching upcoming and past matches for ALL games (Global API)
 app.get('/api/matches', async (req, res) => {
     try {
         console.log('Fetching matches from PandaScore...');
         
-        const response = await axios.get('https://api.pandascore.co/csgo/matches/upcoming', {
-            headers: {
-                Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}`
-            }
-        });
+        const twoMonthsAgo = new Date();
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+        const formattedDate = twoMonthsAgo.toISOString().split('T')[0];
 
-        // Map and clean PandaScore payload to match our Figma requirements perfectly
-        const cleanMatches = response.data.map(match => {
-            // 📺 Find the main stream (Twitch/Kick) or fallback to first available
+        // Fetch from global endpoints to get CS2, LoL, Valorant, Dota2 and R6
+        const [upcomingResponse, pastResponse] = await Promise.all([
+            axios.get('https://api.pandascore.co/matches/upcoming?per_page=100', {
+                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
+            }),
+            axios.get(`https://api.pandascore.co/matches/past?range[scheduled_at]=${formattedDate},2030-01-01&per_page=50`, {
+                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
+            })
+        ]);
+
+        const allRawMatches = [...upcomingResponse.data, ...pastResponse.data];
+
+        const cleanMatches = allRawMatches.map(match => {
             const mainStream = match.streams_list.find(s => s.main === true) || match.streams_list[0];
 
             return {
@@ -38,24 +44,24 @@ app.get('/api/matches', async (req, res) => {
                 status: match.status,
                 scheduled_at: match.scheduled_at,
                 
-                // 🎮 Game details (CSGO, LoL, etc.)
-                game_name: match.videogame.name, // "Counter-Strike"
-                game_slug: match.videogame.slug, // "cs-go" (Used for local icon mapping)
+                // Game details
+                game_name: match.videogame.name,
+                game_slug: match.videogame.slug, // e.g. "league-of-legends"
                 
-                // 🏆 League & Tournament details (ex: LEC / Spring Split / Playoffs)
-                league_name: match.league.name,      // "CCT Europe"
-                league_image: match.league.image_url, // Official league logo
-                serie_name: match.serie.full_name,    // "Series 3 2026" / "Spring Split 2026"
-                stage_name: match.tournament.name,    // "Playoffs" / "Group Stage"
+                // Tournament & League details
+                league_name: match.league.name,
+                league_image: match.league.image_url,
+                serie_name: match.serie.full_name,
+                stage_name: match.tournament.name,
                 
-                // ⚙️ Match details (BO3 / BO5)
-                number_of_games: match.number_of_games, // 3 or 5 (Used for BO3/BO5 display)
-                match_type: match.match_type,           // "best_of"
+                // Match format
+                number_of_games: match.number_of_games,
+                match_type: match.match_type,
                 
-                // 📺 Live Stream Link
-                stream_url: mainStream ? mainStream.raw_url : null, // Twitch or Kick raw URL
+                // Live Stream URL
+                stream_url: mainStream ? mainStream.raw_url : null,
                 
-                // 👥 Team Details (Names and Logos)
+                // Teams
                 teams: match.opponents.map(op => ({
                     id: op.opponent.id,
                     name: op.opponent.name,
@@ -63,6 +69,9 @@ app.get('/api/matches', async (req, res) => {
                 }))
             };
         });
+
+        // Sort chronologically
+        cleanMatches.sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
         res.json(cleanMatches);
 
@@ -72,4 +81,4 @@ app.get('/api/matches', async (req, res) => {
     }
 });
 
-module.exports = app; // Export for testing
+module.exports = app;

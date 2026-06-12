@@ -78,21 +78,21 @@ router.post('/register', async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// POST /api/auth/login
+// POST /api/auth/login (Unified Username/Email connection !)
 // ─────────────────────────────────────────
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+    const { identifier, password } = req.body; // 👈 Accepts the unified 'identifier'
 
     // 1. Validation des champs
-    if (!email || !password) {
-        return res.status(400).json({ error: 'email and password are required.' });
+    if (!identifier || !password) {
+        return res.status(400).json({ error: 'Username/Email and password are required.' });
     }
 
     try {
-        // 2. Récupérer l'utilisateur par email
+        // 2. Query user by EITHER email OR username (Figma UX standard)
         const result = await db.query(
-            'SELECT id, username, email, password_hash FROM users WHERE email = $1',
-            [email.toLowerCase()]
+            'SELECT id, username, email, password_hash FROM users WHERE email = $1 OR username = $2',
+            [identifier.toLowerCase(), identifier.trim()]
         );
 
         if (result.rows.length === 0) {

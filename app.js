@@ -2,9 +2,10 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const nodemailer = require('nodemailer'); // 👈 1. Imported nodemailer at the top!
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 const db = require('./db');
+require('./cron/syncMatches'); // 🤖 Starts background database synchronization (Cron Job)
 
 const app = express();
 
@@ -79,7 +80,7 @@ app.get('/api/user/favorites', authenticateToken, async (req, res) => {
         res.status(200).json({ favorites: result.rows });
     } catch (error) {
         console.error('Error fetching favorites:', error);
-        res.status(500).json({ error: "Erreur lors de la récupération des équipes favorites." });
+        res.status(500).json({ error: "Erreur lors de l'accumulation des équipes favorites." });
     }
 });
 
@@ -89,7 +90,7 @@ app.get('/', (req, res) => {
 });
 
 // ─── Contact Us (Nodemailer SMTP Proxy) ───
-app.post('/api/contact', async (req, res) => { // 👈 2. Added the real-time contact endpoint!
+app.post('/api/contact', async (req, res) => {
     const { name, email, subject, message } = req.body;
 
     if (!name || !email || !subject || !message) {
@@ -134,58 +135,21 @@ app.post('/api/contact', async (req, res) => { // 👈 2. Added the real-time co
     }
 });
 
-// ─── Matches (PandaScore proxy) ───────────
-app.get('/api/matches', async (req, res) => {
+// ─── Matches (PostgreSQL Local Cache - No API limits!) ───
+app.get('/api/matches', async (req, res) => { // 👈 3. Optimized route reading directly from cache!
     try {
-        console.log('Fetching matches from PandaScore...');
+        console.log('Reading matches from local PostgreSQL cache...');
         
-        const twoMonthsAgo = new Date();
-        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
-        const formattedDate = twoMonthsAgo.toISOString().split('T')[0];
-
-        const [upcomingResponse, pastResponse] = await Promise.all([
-            axios.get('https://api.pandascore.co/matches/upcoming?per_page=100', {
-                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
-            }),
-            axios.get(`https://api.pandascore.co/matches/past?range[scheduled_at]=${formattedDate},2030-01-01&per_page=50`, {
-                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
-            })
-        ]);
-
-        const allRawMatches = [...upcomingResponse.data, ...pastResponse.data];
-
-        const cleanMatches = allRawMatches.map(match => {
-            const mainStream = match.streams_list.find(s => s.main === true) || match.streams_list[0];
-
-            return {
-                id: match.id,
-                name: match.name,
-                status: match.status,
-                scheduled_at: match.scheduled_at,
-                game_name: match.videogame.name,
-                game_slug: match.videogame.slug,
-                league_name: match.league.name,
-                league_image: match.league.image_url,
-                serie_name: match.serie.full_name,
-                stage_name: match.tournament.name,
-                number_of_games: match.number_of_games,
-                match_type: match.match_type,
-                stream_url: mainStream ? mainStream.raw_url : null,
-                teams: match.opponents.map(op => ({
-                    id: op.opponent.id,
-                    name: op.opponent.name,
-                    image_url: op.opponent.image_url
-                }))
-            };
-        });
-
-        cleanMatches.sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
-
-        res.json(cleanMatches);
+        // Query our local database cache
+        const result = await db.query(
+            'SELECT * FROM matches ORDER BY scheduled_at ASC'
+        );
+        
+        res.json(result.rows);
 
     } catch (error) {
-        console.error('Error fetching data:', error.message);
-        res.status(500).json({ error: 'Failed to fetch matches' });
+        console.error('Error reading matches from DB:', error.stack);
+        res.status(500).json({ error: 'Failed to read matches from database' });
     }
 });
 

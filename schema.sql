@@ -31,3 +31,23 @@ CREATE TABLE IF NOT EXISTS favorite_leagues (
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(user_id, pandascore_league_id)
 );
+
+-- ─── Matches Cache ───────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS matches (
+    id                INTEGER PRIMARY KEY,
+    name              VARCHAR(255) NOT NULL,
+    status            VARCHAR(50) NOT NULL,
+    scheduled_at      TIMESTAMPTZ NOT NULL,
+    game_name         VARCHAR(100),
+    game_slug         VARCHAR(100),
+    league_name       VARCHAR(100),
+    league_image      TEXT,
+    serie_name        VARCHAR(100),
+    stage_name        VARCHAR(100),
+    number_of_games   INTEGER,
+    match_type        VARCHAR(50),
+    stream_url        TEXT,
+    teams             JSONB,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -50,22 +50,42 @@ router.post('/register', async (req, res) => {
         const verification_token = crypto.randomBytes(32).toString('hex');
         const verification_token_expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000); // +24h
 
-        // 5. Insertion en BDD (compte non vérifié par défaut)
+        // 5. Insertion en BDD (compte vérifié par défaut en dev/test pour simplifier les tests locaux)
+        const isVerifiedDefault = process.env.NODE_ENV === 'production' ? false : true;
         const result = await db.query(
             `INSERT INTO users (username, email, password_hash, is_verified, verification_token, verification_token_expires_at)
-             VALUES ($1, $2, $3, FALSE, $4, $5)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, username, email, created_at`,
-            [username.trim(), email.toLowerCase(), password_hash, verification_token, verification_token_expires_at]
+            [username.trim(), email.toLowerCase(), password_hash, isVerifiedDefault, verification_token, verification_token_expires_at]
         );
 
         const newUser = result.rows[0];
 
-        // 6. Envoi de l'email de vérification
-        await sendVerificationEmail(newUser.email, newUser.username, verification_token);
+        // 6. Envoi de l'email de vérification (uniquement si le compte n'est pas déjà vérifié)
+        if (!isVerifiedDefault) {
+            await sendVerificationEmail(newUser.email, newUser.username, verification_token);
+            
+            // On retourne un message sans JWT — le compte doit être vérifié d'abord
+            return res.status(201).json({
+                message: 'Account created successfully. Please check your email to verify your account.',
+                user: {
+                    id: newUser.id,
+                    username: newUser.username,
+                    email: newUser.email,
+                }
+            });
+        }
 
-        // 7. On retourne un message sans JWT — le compte doit être vérifié d'abord
+        // 7. Si déjà vérifié (dev/test), on génère directement le JWT pour connecter l'utilisateur immédiatement
+        const token = jwt.sign(
+            { userId: newUser.id, username: newUser.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
         return res.status(201).json({
-            message: 'Account created successfully. Please check your email to verify your account.',
+            message: 'Account created successfully and auto-verified.',
+            token,
             user: {
                 id: newUser.id,
                 username: newUser.username,

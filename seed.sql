@@ -13,35 +13,33 @@ TRUNCATE TABLE favorite_teams, favorite_leagues, users CASCADE;
 -- 2. Insert Mock Users and link their Favorites dynamically
 -- We use a CTE (WITH ... AS) to capture the auto-generated UUID of the user
 WITH inserted_user_1 AS (
-    INSERT INTO users (username, email, password_hash)
+    INSERT INTO users (username, email, password_hash, is_verified)
     VALUES (
         'esport_fan_99', 
         'fan@esportcal.com', 
-        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S' -- Bcrypt hash of 'password123'
+        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S', -- Bcrypt hash of 'password123'
+        TRUE
     )
     RETURNING id
 ),
 inserted_user_2 AS (
-    INSERT INTO users (username, email, password_hash)
+    INSERT INTO users (username, email, password_hash, is_verified)
     VALUES (
         'cs2_enjoyer', 
         'gamer@esportcal.com', 
-        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S' -- Bcrypt hash of 'password123'
+        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S', -- Bcrypt hash of 'password123'
+        TRUE
     )
     RETURNING id
+),
+inserted_teams AS (
+    INSERT INTO favorite_teams (user_id, pandascore_team_id)
+    SELECT id, 126738 FROM inserted_user_1
+    UNION ALL
+    SELECT id, 135321 FROM inserted_user_1
+    UNION ALL
+    SELECT id, 126738 FROM inserted_user_2
 )
-
--- 3. Insert Favorite Teams for our users
--- We use the real PandaScore Team IDs we fetched in our JSON payload!
--- Team ID 126738 = SAW
--- Team ID 135321 = G2 Ares
-INSERT INTO favorite_teams (user_id, pandascore_team_id)
-SELECT id, 126738 FROM inserted_user_1
-UNION ALL
-SELECT id, 135321 FROM inserted_user_1
-UNION ALL
-SELECT id, 126738 FROM inserted_user_2;
-
 -- 4. Insert Favorite Leagues for our users
 -- League ID 5232 = CCT Europe
 INSERT INTO favorite_leagues (user_id, pandascore_league_id)

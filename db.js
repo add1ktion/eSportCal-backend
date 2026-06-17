@@ -12,7 +12,15 @@ const pool = new Pool({
 
 if (process.env.NODE_ENV !== 'test') {
     pool.connect()
-        .then(() => console.log('📦 Connected to PostgreSQL successfully!'))
+        .then(async () => {
+            console.log('📦 Connected to PostgreSQL successfully!');
+            try {
+                const { initDatabase } = require('./dbInit');
+                await initDatabase();
+            } catch (err) {
+                console.error('❌ Database initialization error during startup:', err);
+            }
+        })
         .catch(err => console.error('❌ Database connection error:', err.stack));
 }
 

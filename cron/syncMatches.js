@@ -83,11 +83,13 @@ const syncMatches = async () => {
 };
 
 // ⚙️ SCHEDULE: Run the synchronizer once immediately on server startup...
-syncMatches();
-
-// ...and then schedule it to run automatically every 15 minutes
-cron.schedule('*/15 * * * *', () => {
+if (process.env.NODE_ENV !== 'test') {
     syncMatches();
-});
+
+    // ...and then schedule it to run automatically every 15 minutes
+    cron.schedule('*/15 * * * *', () => {
+        syncMatches();
+    });
+}
 
 module.exports = { syncMatches };

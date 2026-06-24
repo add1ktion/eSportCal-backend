@@ -35,11 +35,15 @@ const syncMatches = async () => {
         for (const match of allMatches) {
             // Check if opponents are valid teams
             const validOpponents = match.opponents 
-                ? match.opponents.filter(op => op.type === 'Team').map(op => ({
-                    id: op.opponent.id,
-                    name: op.opponent.name,
-                    image_url: op.opponent.image_url
-                  }))
+                ? match.opponents.filter(op => op.type === 'Team').map(op => {
+                    const resultObj = match.results ? match.results.find(r => r.team_id === op.opponent.id) : null;
+                    return {
+                        id: op.opponent.id,
+                        name: op.opponent.name,
+                        image_url: op.opponent.image_url,
+                        score: resultObj ? resultObj.score : 0
+                    };
+                  })
                 : [];
 
             const mainStream = match.streams_list ? (match.streams_list.find(s => s.main === true) || match.streams_list[0]) : null;

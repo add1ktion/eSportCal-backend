@@ -269,4 +269,64 @@ app.get('/api/matches', async (req, res) => { // 👈 3. Optimized route reading
     }
 });
 
+// ─── Teams (PandaScore Proxy with lazy PostgreSQL Caching) ───
+app.get('/api/teams/:id', async (req, res) => {
+    const teamId = req.params.id;
+
+    try {
+        console.log(`Checking teams_cache for team ID: ${teamId}...`);
+        
+        // 1. Check local cache
+        const cacheRes = await db.query(
+            'SELECT * FROM teams_cache WHERE id = $1',
+            [teamId]
+        );
+
+        if (cacheRes.rows.length > 0) {
+            console.log(`✅ [CACHE HIT] Found team details for ID: ${teamId}`);
+            return res.json(cacheRes.rows[0]);
+        }
+
+        console.log(`❌ [CACHE MISS] Fetching team details for ID: ${teamId} from PandaScore...`);
+
+        // 2. Fetch from PandaScore API
+        const response = await axios.get(`https://api.pandascore.co/teams/${teamId}`, {
+            headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
+        });
+
+        const team = response.data;
+
+        // Clean & keep only necessary player properties
+        const players = team.players ? team.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            first_name: p.first_name,
+            last_name: p.last_name,
+            role: p.role,
+            image_url: p.image_url
+        })) : [];
+
+        // 3. Upsert into teams_cache
+        const insertRes = await db.query(
+            `INSERT INTO teams_cache (id, name, image_url, players, updated_at)
+             VALUES ($1, $2, $3, $4, NOW())
+             ON CONFLICT (id) 
+             DO UPDATE SET
+                 name = EXCLUDED.name,
+                 image_url = EXCLUDED.image_url,
+                 players = EXCLUDED.players,
+                 updated_at = NOW()
+             RETURNING *`,
+            [team.id, team.name, team.image_url, JSON.stringify(players)]
+        );
+
+        console.log(`✅ [CACHE SET] Successfully cached team details for ID: ${teamId}`);
+        res.json(insertRes.rows[0]);
+
+    } catch (error) {
+        console.error(`❌ Error fetching team details for ID ${teamId}:`, error.message);
+        res.status(500).json({ error: 'Failed to fetch team details' });
+    }
+});
+
 module.exports = app;

@@ -51,3 +51,12 @@ CREATE TABLE IF NOT EXISTS matches (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ─── Teams Cache ─────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS teams_cache (
+    id            INTEGER PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    image_url     TEXT,
+    players       JSONB,
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

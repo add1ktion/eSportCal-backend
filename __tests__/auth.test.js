@@ -110,4 +110,82 @@ describe('Authentication API Integration Tests', () => {
             expect(response.body).toHaveProperty('error');
         });
     });
+
+    describe('PUT /api/user/me & DELETE /api/user/me Integration', () => {
+        let userToken = '';
+
+        beforeAll(async () => {
+            // Log in the registered testUser to get the JWT
+            const response = await request(app)
+                .post('/api/auth/login')
+                .send({
+                    identifier: testUser.email,
+                    password: testUser.password
+                });
+            userToken = response.body.token;
+        });
+
+        it('should fail to update profile if not authenticated', async () => {
+            const response = await request(app)
+                .put('/api/user/me')
+                .send({ username: 'new_username_jest' });
+
+            expect(response.statusCode).toBe(401);
+        });
+
+        it('should successfully update user username and password', async () => {
+            const response = await request(app)
+                .put('/api/user/me')
+                .set('Authorization', `Bearer ${userToken}`)
+                .send({
+                    username: 'updated_jest_user',
+                    password: 'newPassword123Secure'
+                });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.user.username).toBe('updated_jest_user');
+            // If username changed, it should return a new token
+            expect(response.body).toHaveProperty('token');
+            userToken = response.body.token; // Update token for subsequent requests
+        });
+
+        it('should successfully login with the new password', async () => {
+            const response = await request(app)
+                .post('/api/auth/login')
+                .send({
+                    identifier: 'updated_jest_user',
+                    password: 'newPassword123Secure'
+                });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body).toHaveProperty('token');
+        });
+
+        it('should fail to delete account if not authenticated', async () => {
+            const response = await request(app)
+                .delete('/api/user/me');
+
+            expect(response.statusCode).toBe(401);
+        });
+
+        it('should successfully delete account (GDPR)', async () => {
+            const response = await request(app)
+                .delete('/api/user/me')
+                .set('Authorization', `Bearer ${userToken}`);
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.message).toBe('Account deleted successfully.');
+        });
+
+        it('should no longer be able to log in after account deletion', async () => {
+            const response = await request(app)
+                .post('/api/auth/login')
+                .send({
+                    identifier: 'updated_jest_user',
+                    password: 'newPassword123Secure'
+                });
+
+            expect(response.statusCode).toBe(401);
+        });
+    });
 });

@@ -17,7 +17,7 @@ WITH inserted_user_1 AS (
     VALUES (
         'esport_fan_99', 
         'fan@esportcal.com', 
-        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S', -- Bcrypt hash of 'password123'
+        '$2b$10$686hE0YDMZtLP5JQdwL0KeLHP2i.E06aQeGf3gNgpKbqk83jnE84.', -- Bcrypt hash of 'password123'
         TRUE
     )
     RETURNING id
@@ -27,7 +27,7 @@ inserted_user_2 AS (
     VALUES (
         'cs2_enjoyer', 
         'gamer@esportcal.com', 
-        '$2b$10$Epj/f0Zq7p4B9bWc1gW4EeL4LwXjYwA7T3gR6D8P6zHh9h8gV7g6S', -- Bcrypt hash of 'password123'
+        '$2b$10$686hE0YDMZtLP5JQdwL0KeLHP2i.E06aQeGf3gNgpKbqk83jnE84.', -- Bcrypt hash of 'password123'
         TRUE
     )
     RETURNING id

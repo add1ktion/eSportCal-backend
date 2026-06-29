@@ -18,7 +18,7 @@ const rangeQuery = `range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${current
 // Map PandaScore API endpoints for our 5 main games
 const GAME_ENDPOINTS = [
     { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches?${rangeQuery}` },
-    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${currentYear}-12-31T23:59:59Z&per_page=500` },
+    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?${rangeQuery}` },
     { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches?${rangeQuery}` },
     { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches?${rangeQuery}` },
     { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}` }
@@ -46,21 +46,44 @@ const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
 const syncMatches = async () => {
     console.log('🔄 [CRON] Starting database synchronization with PandaScore...');
     try {
-        // Fetch matches for all 5 games in parallel (DevOps optimization)
-        const fetchPromises = GAME_ENDPOINTS.map(game => 
-            axios.get(game.url, {
-                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
-            }).catch(err => {
-                console.error(`❌ [CRON] Failed to fetch matches for ${game.name}:`, err.message);
-                return { data: [] }; // Safe fallback if one game API fails
-            })
-        );
-
-        const responses = await Promise.all(fetchPromises);
+        const allMatches = [];
         
-        // Merge all games matches into a single flat array
-        const allMatches = responses.flatMap(res => res.data);
-        console.log(`📥 [CRON] Fetched ${allMatches.length} raw matches from API. Filtering against whitelist...`);
+        // Fetch matches for all 5 games in parallel with pagination (up to 5 pages per game)
+        const fetchGameMatches = async (game) => {
+            let page = 1;
+            let hasMore = true;
+            const gameMatches = [];
+            while (hasMore && page <= 5) {
+                const url = `${game.url}&page=${page}`;
+                try {
+                    const res = await axios.get(url, {
+                        headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
+                    });
+                    if (res.data && res.data.length > 0) {
+                        gameMatches.push(...res.data);
+                        if (res.data.length < 100) {
+                            hasMore = false;
+                        } else {
+                            page++;
+                        }
+                    } else {
+                        hasMore = false;
+                    }
+                } catch (err) {
+                    console.error(`❌ [CRON] Failed to fetch page ${page} for ${game.name}:`, err.message);
+                    hasMore = false;
+                }
+            }
+            console.log(`📥 [CRON] Fetched ${gameMatches.length} raw matches for ${game.name} across ${page - 1} page(s).`);
+            return gameMatches;
+        };
+
+        const fetchPromises = GAME_ENDPOINTS.map(game => fetchGameMatches(game));
+        const results = await Promise.all(fetchPromises);
+        
+        // Merge all matches
+        allMatches.push(...results.flat());
+        console.log(`📥 [CRON] Total matches fetched: ${allMatches.length}. Filtering against whitelist...`);
 
         // Filter matches based on the whitelist
         const whitelistedMatches = allMatches.filter(match => {

@@ -6,8 +6,8 @@ const db = require('../db');
 // Whitelist of leagues we are keeping across all 5 games (case-insensitive checks)
 const LEAGUE_WHITELIST = {
     'league-of-legends': ['LEC', 'LCS', 'LCK', 'LPL', 'Worlds', 'First Stand', 'MSI', 'EMEA Masters', 'LFL'],
-    'valorant': ['VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters'],
-    'cs-go': ['PGL', 'IEM', 'ESL', 'Blast'],
+    'valorant': ['VCT', 'VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters'],
+    'cs-go': ['PGL', 'IEM', 'ESL Pro League', 'ESL One', 'Blast'],
     'dota-2': ['The International', 'Dream League', 'ESL One', 'PGL Wallachia'],
     'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major']
 };
@@ -17,11 +17,11 @@ const rangeQuery = `range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${current
 
 // Map PandaScore API endpoints for our 5 main games
 const GAME_ENDPOINTS = [
-    { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches?${rangeQuery}` },
-    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?${rangeQuery}` },
-    { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches?${rangeQuery}` },
-    { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches?${rangeQuery}` },
-    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}` }
+    { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/csgo/leagues?per_page=100` },
+    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/lol/leagues?per_page=100` },
+    { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/valorant/leagues?per_page=100` },
+    { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/dota2/leagues?per_page=100` },
+    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/r6siege/leagues?per_page=100` }
 ];
 
 const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
@@ -34,13 +34,76 @@ const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
 
     return allowedLeagues.some(l => {
         const u = l.toUpperCase();
+        if (u === 'LFL' && matchLeague === 'LFL') return true;
+        if (u === 'LCK' && matchLeague === 'LCK') return true;
+        if (u === 'LPL' && matchLeague === 'LPL') return true;
+        if (u === 'LEC' && matchLeague === 'LEC') return true;
+        if (u === 'LCS' && matchLeague === 'LCS') return true;
+        
         if (u === 'MSI' && (matchText.includes('MID-SEASON INVITATIONAL') || matchText.includes('MSI'))) return true;
         if (u === 'WORLDS' && (matchText.includes('WORLD CHAMPIONSHIP') || matchText.includes('WORLDS'))) return true;
         if (u === 'VCT CN' && (matchText.includes('CHINA') || matchText.includes('CN')) && matchText.includes('VCT')) return true;
         if (u === 'VALORANT CHAMPIONS' && (matchText.includes('CHAMPIONS') || matchText.includes('VALORANT CHAMPIONS'))) return true;
         if (u === 'VCT MASTERS' && (matchText.includes('MASTERS') || matchText.includes('VCT MASTERS'))) return true;
-        return matchText.includes(u);
+        
+        if (u !== 'LFL' && u !== 'LCK' && u !== 'LPL' && u !== 'LEC' && u !== 'LCS') {
+            return matchText.includes(u);
+        }
+        return false;
     });
+};
+
+// Dynamically resolve matching league IDs from PandaScore for a given game
+const resolveWhitelistedLeagueIds = async (game) => {
+    const allowed = LEAGUE_WHITELIST[game.slug];
+    if (!allowed) return [];
+
+    let page = 1;
+    let hasMore = true;
+    const matchedIds = [];
+
+    while (hasMore && page <= 5) {
+        try {
+            const res = await axios.get(`${game.leaguesUrl}&page=${page}`, {
+                headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
+            });
+            if (res.data && res.data.length > 0) {
+                res.data.forEach(l => {
+                    const u = l.name.toUpperCase();
+                    const matchesWhitelist = allowed.some(wl => {
+                        const uwl = wl.toUpperCase();
+                        if (uwl === 'LFL' && u === 'LFL') return true;
+                        if (uwl === 'LCK' && u === 'LCK') return true;
+                        if (uwl === 'LPL' && u === 'LPL') return true;
+                        if (uwl === 'LEC' && u === 'LEC') return true;
+                        if (uwl === 'LCS' && u === 'LCS') return true;
+                        
+                        if (uwl === 'MSI' && (u.includes('MID-SEASON INVITATIONAL') || u.includes('MSI'))) return true;
+                        if (uwl === 'WORLDS' && (u.includes('WORLD CHAMPIONSHIP') || u.includes('WORLDS'))) return true;
+                        if (uwl === 'VCT CN' && (u.includes('CHINA') || u.includes('CN')) && u.includes('VCT')) return true;
+                        if (uwl === 'VALORANT CHAMPIONS' && (u.includes('CHAMPIONS') || u.includes('VALORANT CHAMPIONS'))) return true;
+                        if (uwl === 'VCT MASTERS' && (u.includes('MASTERS') || u.includes('VCT MASTERS'))) return true;
+                        
+                        if (uwl !== 'LFL' && uwl !== 'LCK' && uwl !== 'LPL' && uwl !== 'LEC' && uwl !== 'LCS') {
+                            return u.includes(uwl);
+                        }
+                        return false;
+                    });
+                    if (matchesWhitelist) {
+                        matchedIds.push(l.id);
+                    }
+                });
+                if (res.data.length < 100) hasMore = false;
+                else page++;
+            } else {
+                hasMore = false;
+            }
+        } catch (err) {
+            console.error(`❌ [CRON] Failed to fetch leagues page ${page} for ${game.name}:`, err.message);
+            hasMore = false;
+        }
+    }
+    return matchedIds;
 };
 
 const syncMatches = async () => {
@@ -50,11 +113,21 @@ const syncMatches = async () => {
         
         // Fetch matches for all 5 games in parallel with pagination (up to 5 pages per game)
         const fetchGameMatches = async (game) => {
+            console.log(`🔍 [CRON] Resolving whitelisted league IDs for ${game.name}...`);
+            const matchedLeagueIds = await resolveWhitelistedLeagueIds(game);
+            console.log(`🎯 [CRON] Found ${matchedLeagueIds.length} matching league IDs for ${game.name}:`, matchedLeagueIds);
+
             let page = 1;
             let hasMore = true;
             const gameMatches = [];
+
+            // If we resolved league IDs, filter the matches API call by those IDs to bypass ERL noise
+            const baseUrl = matchedLeagueIds.length > 0
+                ? `${game.url}&filter[league_id]=${matchedLeagueIds.join(',')}`
+                : game.url;
+
             while (hasMore && page <= 5) {
-                const url = `${game.url}&page=${page}`;
+                const url = `${baseUrl}&page=${page}`;
                 try {
                     const res = await axios.get(url, {
                         headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }

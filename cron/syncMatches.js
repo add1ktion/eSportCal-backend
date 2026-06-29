@@ -24,6 +24,25 @@ const GAME_ENDPOINTS = [
     { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}` }
 ];
 
+const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
+    const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
+    if (!allowedLeagues) return false;
+
+    const matchLeague = (leagueName || '').toUpperCase();
+    const matchSerie = (serieName || '').toUpperCase();
+    const matchText = `${matchLeague} ${matchSerie}`.toUpperCase();
+
+    return allowedLeagues.some(l => {
+        const u = l.toUpperCase();
+        if (u === 'MSI' && (matchText.includes('MID-SEASON INVITATIONAL') || matchText.includes('MSI'))) return true;
+        if (u === 'WORLDS' && (matchText.includes('WORLD CHAMPIONSHIP') || matchText.includes('WORLDS'))) return true;
+        if (u === 'VCT CN' && (matchText.includes('CHINA') || matchText.includes('CN')) && matchText.includes('VCT')) return true;
+        if (u === 'VALORANT CHAMPIONS' && (matchText.includes('CHAMPIONS') || matchText.includes('VALORANT CHAMPIONS'))) return true;
+        if (u === 'VCT MASTERS' && (matchText.includes('MASTERS') || matchText.includes('VCT MASTERS'))) return true;
+        return matchText.includes(u);
+    });
+};
+
 const syncMatches = async () => {
     console.log('🔄 [CRON] Starting database synchronization with PandaScore...');
     try {
@@ -46,12 +65,7 @@ const syncMatches = async () => {
         // Filter matches based on the whitelist
         const whitelistedMatches = allMatches.filter(match => {
             if (!match.videogame || !match.league) return false;
-            const gameSlug = match.videogame.slug;
-            const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
-            if (!allowedLeagues) return false;
-
-            const matchLeague = match.league.name.toUpperCase();
-            return allowedLeagues.some(l => matchLeague.includes(l.toUpperCase()));
+            return isMatchWhitelisted(match.videogame.slug, match.league.name, match.serie ? match.serie.name : '');
         });
 
         console.log(`🎯 [CRON] ${whitelistedMatches.length}/${allMatches.length} matches matched the whitelist. Processing database upsert...`);
@@ -96,11 +110,11 @@ const syncMatches = async () => {
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 ON CONFLICT (id) 
                 DO UPDATE SET 
-                    status = EXCLUDED.status,
-                    scheduled_at = EXCLUDED.scheduled_at,
-                    stream_url = EXCLUDED.stream_url,
-                    teams = EXCLUDED.teams,
-                    updated_at = NOW()
+                	status = EXCLUDED.status,
+                	scheduled_at = EXCLUDED.scheduled_at,
+                	stream_url = EXCLUDED.stream_url,
+                	teams = EXCLUDED.teams,
+                	updated_at = NOW()
             `, values);
         }
 
@@ -117,13 +131,10 @@ const syncMatches = async () => {
 const cleanUpDatabase = async () => {
     console.log('🧹 [CRON] Cleaning up database: removing matches not in the whitelist...');
     try {
-        const allDbMatches = await db.query('SELECT id, game_slug, league_name FROM matches');
+        const allDbMatches = await db.query('SELECT id, game_slug, league_name, serie_name FROM matches');
         let deletedCount = 0;
         for (const row of allDbMatches.rows) {
-            const gameSlug = row.game_slug;
-            const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
-            const matchLeague = row.league_name ? row.league_name.toUpperCase() : '';
-            const isWhitelisted = allowedLeagues && allowedLeagues.some(l => matchLeague.includes(l.toUpperCase()));
+            const isWhitelisted = isMatchWhitelisted(row.game_slug, row.league_name, row.serie_name);
             if (!isWhitelisted) {
                 await db.query('DELETE FROM matches WHERE id = $1', [row.id]);
                 deletedCount++;

@@ -3,13 +3,25 @@ const cron = require('node-cron');
 const axios = require('axios');
 const db = require('../db');
 
+// Whitelist of leagues we are keeping across all 5 games (case-insensitive checks)
+const LEAGUE_WHITELIST = {
+    'league-of-legends': ['LEC', 'LCS', 'LCK', 'LPL', 'Worlds', 'First Stand', 'MSI', 'EMEA Masters', 'LFL'],
+    'valorant': ['VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters'],
+    'cs-go': ['PGL', 'IEM', 'ESL', 'Blast'],
+    'dota-2': ['The International', 'Dream League', 'ESL One', 'PGL Wallachia'],
+    'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major']
+};
+
+const currentYear = new Date().getFullYear();
+const rangeQuery = `range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${currentYear}-12-31T23:59:59Z&per_page=100`;
+
 // Map PandaScore API endpoints for our 5 main games
 const GAME_ENDPOINTS = [
-    { slug: 'cs-go', name: 'Counter-Strike', url: 'https://api.pandascore.co/csgo/matches?per_page=30' },
-    { slug: 'league-of-legends', name: 'League of Legends', url: 'https://api.pandascore.co/lol/matches?per_page=500' },
-    { slug: 'valorant', name: 'Valorant', url: 'https://api.pandascore.co/valorant/matches?per_page=30' },
-    { slug: 'dota-2', name: 'Dota 2', url: 'https://api.pandascore.co/dota2/matches?per_page=30' },
-    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: 'https://api.pandascore.co/r6siege/matches?per_page=30' }
+    { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches?${rangeQuery}` },
+    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${currentYear}-12-31T23:59:59Z&per_page=500` },
+    { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches?${rangeQuery}` },
+    { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches?${rangeQuery}` },
+    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}` }
 ];
 
 const syncMatches = async () => {
@@ -29,10 +41,23 @@ const syncMatches = async () => {
         
         // Merge all games matches into a single flat array
         const allMatches = responses.flatMap(res => res.data);
-        console.log(`📥 [CRON] Fetched ${allMatches.length} raw matches from API. Processing database upsert...`);
+        console.log(`📥 [CRON] Fetched ${allMatches.length} raw matches from API. Filtering against whitelist...`);
+
+        // Filter matches based on the whitelist
+        const whitelistedMatches = allMatches.filter(match => {
+            if (!match.videogame || !match.league) return false;
+            const gameSlug = match.videogame.slug;
+            const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
+            if (!allowedLeagues) return false;
+
+            const matchLeague = match.league.name.toUpperCase();
+            return allowedLeagues.some(l => matchLeague.includes(l.toUpperCase()));
+        });
+
+        console.log(`🎯 [CRON] ${whitelistedMatches.length}/${allMatches.length} matches matched the whitelist. Processing database upsert...`);
 
         // Insert or Update matches in PostgreSQL (UPSERT pattern)
-        for (const match of allMatches) {
+        for (const match of whitelistedMatches) {
             // Check if opponents are valid teams
             const validOpponents = match.opponents 
                 ? match.opponents.filter(op => op.type === 'Team').map(op => {
@@ -81,8 +106,32 @@ const syncMatches = async () => {
 
         console.log('✅ [CRON] Database matches cache successfully updated!');
 
+        // Cleanup database of non-whitelisted matches
+        await cleanUpDatabase();
+
     } catch (error) {
         console.error('❌ [CRON] Fatal synchronization error:', error.message);
+    }
+};
+
+const cleanUpDatabase = async () => {
+    console.log('🧹 [CRON] Cleaning up database: removing matches not in the whitelist...');
+    try {
+        const allDbMatches = await db.query('SELECT id, game_slug, league_name FROM matches');
+        let deletedCount = 0;
+        for (const row of allDbMatches.rows) {
+            const gameSlug = row.game_slug;
+            const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
+            const matchLeague = row.league_name ? row.league_name.toUpperCase() : '';
+            const isWhitelisted = allowedLeagues && allowedLeagues.some(l => matchLeague.includes(l.toUpperCase()));
+            if (!isWhitelisted) {
+                await db.query('DELETE FROM matches WHERE id = $1', [row.id]);
+                deletedCount++;
+            }
+        }
+        console.log(`🧹 [CRON] Cleaned up ${deletedCount} non-whitelisted matches from database.`);
+    } catch (err) {
+        console.error('❌ [CRON] Error during database cleanup:', err.message);
     }
 };
 
@@ -96,4 +145,4 @@ if (process.env.NODE_ENV !== 'test') {
     });
 }
 
-module.exports = { syncMatches };
+module.exports = { syncMatches, LEAGUE_WHITELIST };

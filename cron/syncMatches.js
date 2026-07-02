@@ -218,6 +218,7 @@ const syncMatches = async () => {
 
         // Cleanup database of non-whitelisted matches
         await cleanUpDatabase();
+        await cleanUpUnverifiedUsers();
 
     } catch (error) {
         console.error('❌ [CRON] Fatal synchronization error:', error.message);
@@ -239,6 +240,20 @@ const cleanUpDatabase = async () => {
         console.log(`🧹 [CRON] Cleaned up ${deletedCount} non-whitelisted matches from database.`);
     } catch (err) {
         console.error('❌ [CRON] Error during database cleanup:', err.message);
+    }
+};
+
+const cleanUpUnverifiedUsers = async () => {
+    console.log('🧹 [CRON] Cleaning up unverified user accounts older than 24 hours...');
+    try {
+        const result = await db.query(
+            `DELETE FROM users 
+             WHERE is_verified = FALSE 
+               AND created_at < NOW() - INTERVAL '24 hours'`
+        );
+        console.log(`🧹 [CRON] Successfully purged ${result.rowCount} unverified accounts.`);
+    } catch (err) {
+        console.error('❌ [CRON] Error during unverified users cleanup:', err.message);
     }
 };
 

@@ -5,10 +5,12 @@ const nodemailer = require('nodemailer');
 // Transporter Gmail SMTP
 // ─────────────────────────────────────────
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '465'),
+    secure: (process.env.EMAIL_PORT || '465') === '465',
     auth: {
-        user: process.env.GMAIL_USER,      // ton adresse Gmail
-        pass: process.env.GMAIL_APP_PASS,  // ton App Password (sans espaces)
+        user: process.env.EMAIL_USER,      // ton adresse Gmail
+        pass: process.env.EMAIL_PASS,      // ton App Password (sans espaces)
     },
 });
 
@@ -16,10 +18,10 @@ const transporter = nodemailer.createTransport({
 // Envoi de l'email de vérification
 // ─────────────────────────────────────────
 const sendVerificationEmail = async (toEmail, username, token) => {
-    const verifyUrl = `${process.env.APP_URL}/api/auth/verify-email/${token}`;
+    const verifyUrl = `${process.env.APP_URL || 'http://localhost'}/api/auth/verify-email/${token}`;
 
     await transporter.sendMail({
-        from: `"eSportCal" <${process.env.GMAIL_USER}>`,
+        from: `"eSportCal" <${process.env.EMAIL_USER}>`,
         to: toEmail,
         subject: '✅ Confirme ton adresse email — eSportCal',
         html: `

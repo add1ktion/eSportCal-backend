@@ -58,8 +58,16 @@ async function updateUserProfile(req, res) {
         }
 
         if (password !== undefined && password !== '') {
+            const { currentPassword } = req.body;
+            if (!currentPassword) {
+                return res.status(400).json({ error: 'Current password is required to change password.' });
+            }
+            const isMatch = await bcrypt.compare(currentPassword, currentUser.password_hash);
+            if (!isMatch) {
+                return res.status(401).json({ error: 'Incorrect current password.' });
+            }
             if (password.length < 8) {
-                return res.status(400).json({ error: 'password must be at least 8 characters.' });
+                return res.status(400).json({ error: 'New password must be at least 8 characters.' });
             }
             updatedPasswordHash = await bcrypt.hash(password, 10);
         }

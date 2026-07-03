@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { sendVerificationEmail } = require('../utils/mailer');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
 
 // POST /api/auth/register
 async function register(req, res) {
@@ -198,8 +198,99 @@ async function login(req, res) {
     }
 }
 
+// POST /api/auth/forgot-password
+async function forgotPassword(req, res) {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    try {
+        // Find user by email
+        const result = await db.query(
+            'SELECT id, username, email FROM users WHERE email = $1',
+            [email.toLowerCase().trim()]
+        );
+
+        if (result.rows.length === 0) {
+            // Secure response: do not leak if email exists or not, but for testing or typical flows we can return success
+            return res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
+        }
+
+        const user = result.rows[0];
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetExpires = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+        // Update user
+        await db.query(
+            `UPDATE users 
+             SET reset_token = $1, reset_token_expires_at = $2 
+             WHERE id = $3`,
+            [resetToken, resetExpires, user.id]
+        );
+
+        // Send email
+        await sendPasswordResetEmail(user.email, user.username, resetToken);
+
+        return res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
+
+    } catch (err) {
+        console.error('❌ [POST /forgot-password] Error:', err.message);
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
+}
+
+// POST /api/auth/reset-password
+async function resetPassword(req, res) {
+    const { token, password } = req.body;
+    if (!token || !password) {
+        return res.status(400).json({ error: 'Token and new password are required.' });
+    }
+
+    if (password.length < 8) {
+        return res.status(400).json({ error: 'password must be at least 8 characters.' });
+    }
+
+    try {
+        // Find user with valid token
+        const result = await db.query(
+            `SELECT id FROM users 
+             WHERE reset_token = $1 
+               AND reset_token_expires_at > NOW()`,
+            [token]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired password reset token.' });
+        }
+
+        const user = result.rows[0];
+
+        // Hash new password
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Update user
+        await db.query(
+            `UPDATE users 
+             SET password_hash = $1, reset_token = NULL, reset_token_expires_at = NULL 
+             WHERE id = $2`,
+            [passwordHash, user.id]
+        );
+
+        return res.status(200).json({ message: 'Password has been reset successfully. You can now log in.' });
+
+    } catch (err) {
+        console.error('❌ [POST /reset-password] Error:', err.message);
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
+}
+
 module.exports = {
     register,
     verifyEmail,
-    login
+    login,
+    forgotPassword,
+    resetPassword
 };

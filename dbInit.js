@@ -47,6 +47,31 @@ async function initDatabase() {
             console.log('ℹ️ Column "is_verified" already exists. Skipping migration.');
         }
 
+        // 3. Check if the password reset columns already exist
+        const checkResetColumnResult = await db.query(
+            `SELECT column_name 
+             FROM information_schema.columns 
+             WHERE table_name = 'users' 
+               AND column_name = 'reset_token'`
+        );
+
+        const resetColumnExists = checkResetColumnResult.rows.length > 0;
+
+        if (!resetColumnExists) {
+            console.log('🔄 Column "reset_token" not detected. Running password reset migration...');
+            const resetMigrationPath = path.join(__dirname, 'migrations', 'add_password_reset.sql');
+            
+            if (fs.existsSync(resetMigrationPath)) {
+                const resetMigrationSql = fs.readFileSync(resetMigrationPath, 'utf8');
+                await db.query(resetMigrationSql);
+                console.log('✅ Migration add_password_reset.sql executed.');
+            } else {
+                console.error('❌ Migration file not found at:', resetMigrationPath);
+            }
+        } else {
+            console.log('ℹ️ Column "reset_token" already exists. Skipping migration.');
+        }
+
         console.log('🎉 Database initialization completed successfully!');
     } catch (error) {
         console.error('❌ Database initialization failed:', error);

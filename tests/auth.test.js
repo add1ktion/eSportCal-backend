@@ -139,7 +139,8 @@ describe('Authentication API Integration Tests', () => {
                 .set('Authorization', `Bearer ${userToken}`)
                 .send({
                     username: 'updated_jest_user',
-                    password: 'newPassword123Secure'
+                    password: 'newPassword123Secure',
+                    currentPassword: testUser.password
                 });
 
             expect(response.statusCode).toBe(200);
@@ -186,6 +187,59 @@ describe('Authentication API Integration Tests', () => {
                 });
 
             expect(response.statusCode).toBe(401);
+        });
+    });
+
+    describe('Forgot & Reset Password API Integration', () => {
+        let resetUser = {
+            username: 'reset_test_user',
+            email: 'reset_user@test-example.com',
+            password: 'originalPassword123'
+        };
+
+        beforeAll(async () => {
+            // Register a user
+            await request(app)
+                .post('/api/auth/register')
+                .send(resetUser);
+        });
+
+        it('should request a password reset email successfully', async () => {
+            const response = await request(app)
+                .post('/api/auth/forgot-password')
+                .send({ email: resetUser.email });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.message).toContain('reset link has been sent');
+        });
+
+        it('should successfully reset password with the database token', async () => {
+            // Fetch token from DB
+            const userRes = await db.query('SELECT reset_token FROM users WHERE email = $1', [resetUser.email]);
+            const token = userRes.rows[0].reset_token;
+            expect(token).toBeDefined();
+
+            const response = await request(app)
+                .post('/api/auth/reset-password')
+                .send({
+                    token,
+                    password: 'newPassword999Secure'
+                });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body.message).toContain('Password has been reset successfully');
+        });
+
+        it('should successfully login with the new reset password', async () => {
+            const response = await request(app)
+                .post('/api/auth/login')
+                .send({
+                    identifier: resetUser.email,
+                    password: 'newPassword999Secure'
+                });
+
+            expect(response.statusCode).toBe(200);
+            expect(response.body).toHaveProperty('token');
         });
     });
 });

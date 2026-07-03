@@ -1,4 +1,5 @@
 // backend/controllers/authController.js
+const axios = require('axios');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -289,10 +290,216 @@ async function resetPassword(req, res) {
     }
 }
 
+// GET /api/auth/google/callback
+async function googleCallback(req, res) {
+    const { code } = req.query;
+    if (!code) {
+        return res.status(400).send('OAuth authorization code is missing.');
+    }
+
+    try {
+        // 1. Exchange code for access token
+        const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
+            code,
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            redirect_uri: process.env.GOOGLE_REDIRECT_URI,
+            grant_type: 'authorization_code'
+        });
+
+        const { access_token } = tokenResponse.data;
+
+        // 2. Fetch user information
+        const userResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${access_token}` }
+        });
+
+        const { email, name } = userResponse.data;
+        if (!email) {
+            return res.status(400).send('Google account does not provide an email address.');
+        }
+
+        // 3. Find or create user in DB
+        let userResult = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+        let user;
+
+        if (userResult.rows.length === 0) {
+            // Generate unique username
+            let baseUsername = (name || email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '');
+            if (baseUsername.length < 3) baseUsername = 'GoogleUser';
+            let uniqueUsername = baseUsername;
+            let count = 0;
+            while (true) {
+                const check = await db.query('SELECT id FROM users WHERE username = $1', [uniqueUsername]);
+                if (check.rows.length === 0) break;
+                count++;
+                uniqueUsername = `${baseUsername}${count}`;
+            }
+
+            const randomPassword = crypto.randomBytes(16).toString('hex');
+            const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+            const insertResult = await db.query(
+                `INSERT INTO users (username, email, password_hash, is_verified)
+                 VALUES ($1, $2, $3, TRUE)
+                 RETURNING *`,
+                [uniqueUsername, email.toLowerCase().trim(), passwordHash]
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = userResult.rows[0];
+        }
+
+        // 4. Generate JWT
+        const token = jwt.sign(
+            { userId: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Fetch user favorites
+        const favResult = await db.query(
+            `SELECT pandascore_team_id FROM user_favorites WHERE user_id = $1 LIMIT 1`,
+            [user.id]
+        );
+        const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;
+
+        const userJson = encodeURIComponent(JSON.stringify({
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            favoriteTeamId
+        }));
+
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost';
+        return res.redirect(`${clientUrl}/?token=${token}&user=${userJson}`);
+
+    } catch (err) {
+        console.error('❌ [Google Callback] Error:', err.message);
+        return res.status(500).send('Authentication failed.');
+    }
+}
+
+// GET /api/auth/twitch/callback
+async function twitchCallback(req, res) {
+    const { code } = req.query;
+    if (!code) {
+        return res.status(400).send('OAuth authorization code is missing.');
+    }
+
+    try {
+        // 1. Exchange code for access token
+        const tokenResponse = await axios.post('https://id.twitch.tv/oauth2/token', null, {
+            params: {
+                client_id: process.env.TWITCH_CLIENT_ID,
+                client_secret: process.env.TWITCH_CLIENT_SECRET,
+                code,
+                grant_type: 'authorization_code',
+                redirect_uri: process.env.TWITCH_REDIRECT_URI
+            }
+        });
+
+        const { access_token } = tokenResponse.data;
+
+        // 2. Fetch user information
+        const userResponse = await axios.get('https://api.twitch.tv/helix/users', {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                'Client-Id': process.env.TWITCH_CLIENT_ID
+            }
+        });
+
+        const twitchUser = userResponse.data.data[0];
+        if (!twitchUser) {
+            return res.status(400).send('Unable to retrieve Twitch profile info.');
+        }
+
+        const { email, display_name, login } = twitchUser;
+        if (!email) {
+            return res.status(400).send('Twitch account does not provide an email address.');
+        }
+
+        // 3. Find or create user in DB
+        let userResult = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+        let user;
+
+        if (userResult.rows.length === 0) {
+            // Generate unique username
+            let baseUsername = (display_name || login || email.split('@')[0]).replace(/[^a-zA-Z0-9_]/g, '');
+            if (baseUsername.length < 3) baseUsername = 'TwitchUser';
+            let uniqueUsername = baseUsername;
+            let count = 0;
+            while (true) {
+                const check = await db.query('SELECT id FROM users WHERE username = $1', [uniqueUsername]);
+                if (check.rows.length === 0) break;
+                count++;
+                uniqueUsername = `${baseUsername}${count}`;
+            }
+
+            const randomPassword = crypto.randomBytes(16).toString('hex');
+            const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+            const insertResult = await db.query(
+                `INSERT INTO users (username, email, password_hash, is_verified)
+                 VALUES ($1, $2, $3, TRUE)
+                 RETURNING *`,
+                [uniqueUsername, email.toLowerCase().trim(), passwordHash]
+            );
+            user = insertResult.rows[0];
+        } else {
+            user = userResult.rows[0];
+        }
+
+        // 4. Generate JWT
+        const token = jwt.sign(
+            { userId: user.id, username: user.username },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Fetch user favorites
+        const favResult = await db.query(
+            `SELECT pandascore_team_id FROM user_favorites WHERE user_id = $1 LIMIT 1`,
+            [user.id]
+        );
+        const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;
+
+        const userJson = encodeURIComponent(JSON.stringify({
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            favoriteTeamId
+        }));
+
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost';
+        return res.redirect(`${clientUrl}/?token=${token}&user=${userJson}`);
+
+    } catch (err) {
+        console.error('❌ [Twitch Callback] Error:', err.message);
+        return res.status(500).send('Authentication failed.');
+    }
+}
+
+// GET /api/auth/google
+async function googleAuthRedirect(req, res) {
+    const googleUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI)}&response_type=code&scope=email%20profile`;
+    return res.redirect(googleUrl);
+}
+
+// GET /api/auth/twitch
+async function twitchAuthRedirect(req, res) {
+    const twitchUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITCH_REDIRECT_URI)}&response_type=code&scope=user:read:email`;
+    return res.redirect(twitchUrl);
+}
+
 module.exports = {
     register,
     verifyEmail,
     login,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    googleCallback,
+    twitchCallback,
+    googleAuthRedirect,
+    twitchAuthRedirect
 };

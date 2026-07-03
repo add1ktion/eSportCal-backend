@@ -1,6 +1,6 @@
 // backend/routes/auth.js
 const express = require('express');
-const { register, verifyEmail, login, forgotPassword, resetPassword } = require('../controllers/authController');
+const { register, verifyEmail, login, forgotPassword, resetPassword, googleCallback, twitchCallback, googleAuthRedirect, twitchAuthRedirect } = require('../controllers/authController');
 
 const router = express.Router();
 
@@ -18,5 +18,17 @@ router.post('/forgot-password', forgotPassword);
 
 // POST /api/auth/reset-password
 router.post('/reset-password', resetPassword);
+
+// GET /api/auth/google/callback
+router.get('/google/callback', googleCallback);
+
+// GET /api/auth/twitch/callback
+router.get('/twitch/callback', twitchCallback);
+
+// GET /api/auth/google (redirects user to Google OAuth page)
+router.get('/google', googleAuthRedirect);
+
+// GET /api/auth/twitch (redirects user to Twitch OAuth page)
+router.get('/twitch', twitchAuthRedirect);
 
 module.exports = router;

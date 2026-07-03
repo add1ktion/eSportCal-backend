@@ -242,4 +242,22 @@ describe('Authentication API Integration Tests', () => {
             expect(response.body).toHaveProperty('token');
         });
     });
+
+    describe('SSO Redirects API Integration', () => {
+        it('should redirect /api/auth/google to Google OAuth URL', async () => {
+            const response = await request(app)
+                .get('/api/auth/google');
+            
+            expect(response.statusCode).toBe(302);
+            expect(response.header.location).toContain('accounts.google.com');
+        });
+
+        it('should redirect /api/auth/twitch to Twitch OAuth URL', async () => {
+            const response = await request(app)
+                .get('/api/auth/twitch');
+            
+            expect(response.statusCode).toBe(302);
+            expect(response.header.location).toContain('twitch.tv');
+        });
+    });
 });

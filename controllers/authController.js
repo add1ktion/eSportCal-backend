@@ -231,8 +231,10 @@ async function forgotPassword(req, res) {
             [resetToken, resetExpires, user.id]
         );
 
-        // Send email
-        await sendPasswordResetEmail(user.email, user.username, resetToken);
+        // Send email (skip in test mode to avoid missing credentials error in CI)
+        if (process.env.NODE_ENV !== 'test') {
+            await sendPasswordResetEmail(user.email, user.username, resetToken);
+        }
 
         return res.status(200).json({ message: 'If the email exists, a reset link has been sent.' });
 

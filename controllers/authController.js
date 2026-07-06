@@ -109,15 +109,17 @@ async function verifyEmail(req, res) {
             [token]
         );
 
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost';
+
         if (result.rows.length === 0) {
-            return res.status(400).json({ error: 'Invalid or expired verification link.' });
+            return res.redirect(`${clientUrl}/?verified=error`);
         }
 
         const user = result.rows[0];
 
         // 2. Déjà vérifié ?
         if (user.is_verified) {
-            return res.status(200).json({ message: 'Email already verified. You can log in.' });
+            return res.redirect(`${clientUrl}/?verified=already`);
         }
 
         // 3. Activer le compte + supprimer le token
@@ -130,9 +132,7 @@ async function verifyEmail(req, res) {
             [user.id]
         );
 
-        return res.status(200).json({
-            message: 'Email verified successfully. You can now log in.',
-        });
+        return res.redirect(`${clientUrl}/?verified=true`);
 
     } catch (err) {
         console.error('❌ [GET /verify-email] Error:', err.message);

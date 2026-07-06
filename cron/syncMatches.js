@@ -259,7 +259,10 @@ const cleanUpUnverifiedUsers = async () => {
 
 // ⚙️ SCHEDULE: Run the synchronizer once immediately on server startup...
 if (process.env.NODE_ENV !== 'test') {
-    syncMatches();
+    // Delay the initial sync by 5 seconds to ensure database schemas and tables are fully initialized
+    setTimeout(() => {
+        syncMatches();
+    }, 5000);
 
     // ...and then schedule it to run automatically every 15 minutes
     cron.schedule('*/15 * * * *', () => {

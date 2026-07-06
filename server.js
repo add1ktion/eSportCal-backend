@@ -1,4 +1,5 @@
 // backend/server.js
+require('./instrument');
 const app = require('./app');
 
 const PORT = process.env.PORT || 5001;

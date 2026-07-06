@@ -10,8 +10,14 @@ const pool = new Pool({
     database: process.env.DB_NAME,
 });
 
+// Handle unexpected errors on idle clients in the pool (like ECONNRESET from pooler timeouts)
+pool.on('error', (err, client) => {
+    console.error('⚠️ Unexpected error on idle client in PostgreSQL pool:', err.message);
+});
+
 if (process.env.NODE_ENV !== 'test') {
-    pool.connect()
+    // Run a simple query to verify connection (automatically checks out and releases client)
+    pool.query('SELECT NOW()')
         .then(async () => {
             console.log('📦 Connected to PostgreSQL successfully!');
             try {

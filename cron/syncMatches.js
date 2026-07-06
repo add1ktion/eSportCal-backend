@@ -7,7 +7,7 @@ const db = require('../db');
 const LEAGUE_WHITELIST = {
     'league-of-legends': ['LEC', 'LCS', 'LCK', 'LPL', 'Worlds', 'First Stand', 'MSI', 'EMEA Masters', 'LFL'],
     'valorant': ['VCT', 'VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters'],
-    'cs-go': ['PGL', 'IEM', 'ESL Pro League', 'ESL One', 'Blast'],
+    'cs-go': ['PGL', 'IEM', 'Intel Extreme Masters', 'ESL Pro League', 'ESL One', 'ESL', 'Blast'],
     'dota-2': ['The International', 'Dream League', 'ESL One', 'PGL Wallachia'],
     'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major']
 };
@@ -25,7 +25,12 @@ const GAME_ENDPOINTS = [
 ];
 
 const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
-    const allowedLeagues = LEAGUE_WHITELIST[gameSlug];
+    // Normalize game slug for any CS variant
+    let normalizedSlug = gameSlug;
+    if (gameSlug === 'cs-2' || gameSlug === 'counter-strike' || gameSlug === 'counter-strike-2') {
+        normalizedSlug = 'cs-go';
+    }
+    const allowedLeagues = LEAGUE_WHITELIST[normalizedSlug];
     if (!allowedLeagues) return false;
 
     const matchLeague = (leagueName || '').toUpperCase();

@@ -12,16 +12,24 @@ const LEAGUE_WHITELIST = {
     'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major', 'Europe League', 'Brazil League', 'Japan League', 'South Korea League', 'LATAM League', 'Oceania League']
 };
 
-const currentYear = new Date().getFullYear();
-const rangeQuery = `range[scheduled_at]=${currentYear}-01-01T00:00:00Z,${currentYear}-12-31T23:59:59Z&per_page=100`;
+const getRangeQuery = () => {
+    const today = new Date();
+    // 60 days in the past
+    const pastDate = new Date(today.getTime() - 60 * 24 * 60 * 60 * 1000);
+    // 120 days in the future
+    const futureDate = new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000);
+    const pastStr = pastDate.toISOString().split('.')[0] + 'Z';
+    const futureStr = futureDate.toISOString().split('.')[0] + 'Z';
+    return `range[scheduled_at]=${pastStr},${futureStr}&per_page=100`;
+};
 
 // Map PandaScore API endpoints for our 5 main games
 const GAME_ENDPOINTS = [
-    { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/csgo/leagues?per_page=100` },
-    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/lol/leagues?per_page=100` },
-    { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/valorant/leagues?per_page=100` },
-    { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/dota2/leagues?per_page=100` },
-    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches?${rangeQuery}`, leaguesUrl: `https://api.pandascore.co/r6siege/leagues?per_page=100` }
+    { slug: 'cs-go', name: 'Counter-Strike', url: `https://api.pandascore.co/csgo/matches`, leaguesUrl: `https://api.pandascore.co/csgo/leagues?per_page=100` },
+    { slug: 'league-of-legends', name: 'League of Legends', url: `https://api.pandascore.co/lol/matches`, leaguesUrl: `https://api.pandascore.co/lol/leagues?per_page=100` },
+    { slug: 'valorant', name: 'Valorant', url: `https://api.pandascore.co/valorant/matches`, leaguesUrl: `https://api.pandascore.co/valorant/leagues?per_page=100` },
+    { slug: 'dota-2', name: 'Dota 2', url: `https://api.pandascore.co/dota2/matches`, leaguesUrl: `https://api.pandascore.co/dota2/leagues?per_page=100` },
+    { slug: 'r6-siege', name: 'Rainbow 6 Siege', url: `https://api.pandascore.co/r6siege/matches`, leaguesUrl: `https://api.pandascore.co/r6siege/leagues?per_page=100` }
 ];
 
 const isMatchWhitelisted = (gameSlug, leagueName, serieName) => {
@@ -71,7 +79,8 @@ const resolveWhitelistedLeagueIds = async (game) => {
     let hasMore = true;
     const matchedIds = [];
 
-    while (hasMore && page <= 5) {
+    // Increase limit to 30 pages to capture older/niche whitelisted leagues across all games
+    while (hasMore && page <= 30) {
         try {
             const res = await axios.get(`${game.leaguesUrl}&page=${page}`, {
                 headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
@@ -122,6 +131,8 @@ const syncMatches = async () => {
         
         // Fetch matches for all 5 games in parallel with pagination (up to 5 pages per game)
         const fetchGameMatches = async (game) => {
+            const rangeQuery = getRangeQuery();
+            
             console.log(`🔍 [CRON] Resolving whitelisted league IDs for ${game.name}...`);
             const matchedLeagueIds = await resolveWhitelistedLeagueIds(game);
             console.log(`🎯 [CRON] Found ${matchedLeagueIds.length} matching league IDs for ${game.name}:`, matchedLeagueIds);
@@ -130,10 +141,10 @@ const syncMatches = async () => {
             let hasMore = true;
             const gameMatches = [];
 
-            // If we resolved league IDs, filter the matches API call by those IDs to bypass ERL noise
-            const baseUrl = matchedLeagueIds.length > 0
-                ? `${game.url}&filter[league_id]=${matchedLeagueIds.join(',')}`
-                : game.url;
+            let baseUrl = `${game.url}?${rangeQuery}`;
+            if (matchedLeagueIds.length > 0) {
+                baseUrl += `&filter[league_id]=${matchedLeagueIds.join(',')}`;
+            }
 
             while (hasMore && page <= 5) {
                 const url = `${baseUrl}&page=${page}`;

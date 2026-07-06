@@ -59,17 +59,47 @@ async function register(req, res) {
 
         // 6. Envoi de l'email de vérification (uniquement si le compte n'est pas déjà vérifié)
         if (!isVerifiedDefault) {
-            await sendVerificationEmail(newUser.email, newUser.username, verification_token);
-            
-            // On retourne un message sans JWT — le compte doit être vérifié d'abord
-            return res.status(201).json({
-                message: 'Account created successfully. Please check your email to verify your account.',
-                user: {
-                    id: newUser.id,
-                    username: newUser.username,
-                    email: newUser.email,
-                }
-            });
+            try {
+                await sendVerificationEmail(newUser.email, newUser.username, verification_token);
+                
+                // On retourne un message sans JWT — le compte doit être vérifié d'abord
+                return res.status(201).json({
+                    message: 'Account created successfully. Please check your email to verify your account.',
+                    user: {
+                        id: newUser.id,
+                        username: newUser.username,
+                        email: newUser.email,
+                    }
+                });
+            } catch (mailErr) {
+                console.warn('⚠️ [POST /register] Failed to send verification email (Resend Sandbox limit). Auto-verifying account for demo compatibility:', mailErr.message);
+                
+                // Force verification status to TRUE in the database to prevent user lockout
+                await db.query(
+                    `UPDATE users 
+                     SET is_verified = TRUE, 
+                         verification_token = NULL, 
+                         verification_token_expires_at = NULL 
+                     WHERE id = $1`, 
+                    [newUser.id]
+                );
+
+                const token = jwt.sign(
+                    { userId: newUser.id, username: newUser.username },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '7d' }
+                );
+
+                return res.status(201).json({
+                    message: 'Account created successfully (Auto-verified due to email delivery sandbox limits).',
+                    token,
+                    user: {
+                        id: newUser.id,
+                        username: newUser.username,
+                        email: newUser.email,
+                    }
+                });
+            }
         }
 
         // 7. Si déjà vérifié (dev/test), on génère directement le JWT pour connecter l'utilisateur immédiatement

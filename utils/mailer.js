@@ -13,7 +13,7 @@ const sendEmailViaResend = async (toEmail, subject, htmlContent) => {
 
     try {
         await axios.post('https://api.resend.com/emails', {
-            from: 'onboarding@resend.dev', // Expéditeur sandbox gratuit de Resend
+            from: 'eSportCal <noreply@esportcal.com>', // Nouveau domaine vérifié !
             to: toEmail,
             subject: subject,
             html: htmlContent

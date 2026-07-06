@@ -80,4 +80,4 @@ const sendPasswordResetEmail = async (toEmail, username, token) => {
     await sendEmailViaResend(toEmail, '🔒 Reset your password — eSportCal', html);
 };
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendEmailViaResend };

@@ -22,6 +22,20 @@ app.use('/api/user', userRoutes);
 app.use('/api', matchesRoutes); // Gère /api/matches, /api/teams/:id, /api/contact
 
 // ─── Health check & Monitoring ─────────────────────────
+const client = require('prom-client');
+client.collectDefaultMetrics({ register: client.register });
+
+app.get('/metrics', async (req, res) => {
+    if (process.env.METRICS_TOKEN) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || authHeader !== `Bearer ${process.env.METRICS_TOKEN}`) {
+            return res.status(401).send('Unauthorized');
+        }
+    }
+    res.set('Content-Type', client.register.contentType);
+    res.end(await client.register.metrics());
+});
+
 app.get('/', (req, res) => {
     res.send('eSportCal API is running...');
 });

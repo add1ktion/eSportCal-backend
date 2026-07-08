@@ -389,7 +389,7 @@ async function googleCallback(req, res) {
 
         // Fetch user favorites
         const favResult = await db.query(
-            `SELECT pandascore_team_id FROM user_favorites WHERE user_id = $1 LIMIT 1`,
+            `SELECT pandascore_team_id FROM favorite_teams WHERE user_id = $1 LIMIT 1`,
             [user.id]
         );
         const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;
@@ -489,7 +489,7 @@ async function twitchCallback(req, res) {
 
         // Fetch user favorites
         const favResult = await db.query(
-            `SELECT pandascore_team_id FROM user_favorites WHERE user_id = $1 LIMIT 1`,
+            `SELECT pandascore_team_id FROM favorite_teams WHERE user_id = $1 LIMIT 1`,
             [user.id]
         );
         const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;

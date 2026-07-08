@@ -20,7 +20,7 @@ if (process.env.GRAFANA_LOKI_URL) {
         labels: { app: 'esportcal-backend', env: process.env.NODE_ENV || 'development' },
         json: true,
         replaceTimestamp: true,
-        onConnectionError: (err) => console.error('Loki Connection Error:', err)
+        onConnectionError: (err) => process.stderr.write('Loki Connection Error: ' + err.message + '\n')
     }));
 }
 

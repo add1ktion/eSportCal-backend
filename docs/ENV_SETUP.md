@@ -68,7 +68,7 @@ On Railway, you should create three separate services within your project, mappe
     JWT_SECRET=prod_high_security_jwt_secret_phrase
     PANDASCORE_API_KEY=your_pandascore_api_key
     EMAIL_USER=esportcalndr@gmail.com
-    EMAIL_PASS=glzf szqf rlfv zglu
+    EMAIL_PASS=your_production_email_password
     ```
 
 ---

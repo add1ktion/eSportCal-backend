@@ -19,6 +19,7 @@ if (process.env.GRAFANA_LOKI_URL) {
             : undefined,
         labels: { service_name: 'esportcal-backend', app: 'esportcal-backend', env: process.env.NODE_ENV || 'development' },
         json: true,
+        batching: false,
         replaceTimestamp: true,
         onConnectionError: (err) => process.stderr.write('Loki Connection Error: ' + err.message + '\n')
     }));

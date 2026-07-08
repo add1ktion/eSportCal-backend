@@ -17,7 +17,7 @@ if (process.env.GRAFANA_LOKI_URL) {
         basicAuth: process.env.GRAFANA_LOKI_USER && process.env.GRAFANA_LOKI_PASSWORD 
             ? `${process.env.GRAFANA_LOKI_USER}:${process.env.GRAFANA_LOKI_PASSWORD}`
             : undefined,
-        labels: { app: 'esportcal-backend', env: process.env.NODE_ENV || 'development' },
+        labels: { service_name: 'esportcal-backend', app: 'esportcal-backend', env: process.env.NODE_ENV || 'development' },
         json: true,
         replaceTimestamp: true,
         onConnectionError: (err) => process.stderr.write('Loki Connection Error: ' + err.message + '\n')
@@ -31,6 +31,11 @@ const logger = winston.createLogger({
         winston.format.json()
     ),
     transports
+});
+
+// Handle internal transport errors (like Loki auth issues) to prevent silent failures
+logger.on('error', (err) => {
+    process.stderr.write('Winston Logger Transport Error: ' + err.message + '\n');
 });
 
 module.exports = logger;

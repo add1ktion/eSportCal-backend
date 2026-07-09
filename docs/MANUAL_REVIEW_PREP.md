@@ -1,146 +1,174 @@
-# 🏛️ Guide de Soutenance — Technical Manual Review (eSportCal)
+# 🎓 Guide de Soutenance — Technical Manual Review (eSportCal)
 
-Ce document rassemble toutes les explications techniques, l'architecture générale, les schémas de base de données, la logique des tests d'intégration, ainsi que les explications détaillées des extraits de code (snippets) que tu vas devoir présenter lors de ta **Manual Review**.
-
----
-
-## 🧭 1. Présentation Générale (Le Pitch)
-**eSportCal** est une plateforme web d'agrégation de calendriers e-sportifs multi-jeux (League of Legends, Counter-Strike 2, Valorant, Dota 2, Rainbow 6). 
-*   **Problématique résolue** : Les fans d'e-sport doivent jongler entre de multiples sites (Liquipedia, HLTV, etc.) pour suivre leurs équipes. eSportCal centralise tout au même endroit, avec un filtre puissant et un calendrier interactif adapté aux fuseaux horaires.
-*   **Fonctionnalités clés (MVP)** : Calendrier en temps réel, filtres avancés par ligues, masquage anti-spoiler des scores, système d'authentification sécurisé, flux personnalisé d'équipes favorites et synchronisation automatique en tâche de fond.
+Ce document rassemble toutes les explications techniques, l'architecture générale, le schéma de base de données, ainsi que les explications détaillées des concepts et extraits de code (snippets) indispensables pour valider la totalité des points de ta **Manual Review**.
 
 ---
 
-## 🏛️ 2. Architecture Technique & Choix Technologiques
-Nous avons opté pour une architecture **Client-Serveur découplée** :
-*   **Frontend** : Construit avec **Vite + React.js** pour une interface utilisateur (UI) dynamique, réactive et fluide. Le design est géré en CSS moderne avec Tailwind CSS pour un rendu sombre premium. Déployé sur **Vercel**.
-*   **Backend** : Une API REST robuste avec **Node.js + Express** structurée selon le modèle **MVC** (Model-View-Controller). Déployé sur **Railway**.
-*   **Base de Données** : **PostgreSQL** hébergé sur **Supabase** pour la fiabilité des relations SQL (indispensable pour lier les utilisateurs à leurs favoris et gérer le cache des matchs).
-*   **Mailing** : Service de messagerie transactionnelle géré par **Resend**.
+## 🧭 1. Choix de la Stack Technique (5 / 5 Points)
+
+*   **Architecture Découplée (Client-Serveur)** : Nous avons séparé le Frontend (React/Vite) du Backend (Express). Cela permet un développement indépendant, une meilleure scalabilité (les deux peuvent être mis à l'échelle séparément sur Vercel et Railway) et une API réutilisable pour d'autres clients (application mobile future).
+*   **Frontend : Vite + React.js** : 
+    *   *React* permet une interface réactive (Single Page Application) grâce au Virtual DOM. C'est parfait pour un calendrier dynamique où le filtrage par jeu ou par date doit s'afficher instantanément sans rechargement de page.
+    *   *Vite* offre un temps de build et un rechargement à chaud (HMR) ultra-rapides par rapport à Webpack.
+*   **Backend : Node.js + Express** : 
+    *   *Node.js* utilise un modèle d'I/O non-bloquant et orienté événements, idéal pour gérer de multiples requêtes API simultanées et des tâches asynchrones comme la synchronisation automatique en arrière-plan.
+    *   *Express* est un framework léger et flexible permettant de structurer facilement notre API REST sous le modèle MVC.
+*   **Base de données : PostgreSQL (Supabase)** : 
+    *   Choix d'une base de données relationnelle car nos données sont fortement structurées et interconnectées (liaison stricte entre `users` et `favorite_teams` ou `favorite_leagues`).
+    *   Supabase permet d'avoir une instance PostgreSQL managée performante et sécurisée dans le cloud.
+*   **Observabilité : Grafana Cloud + Sentry** :
+    *   *Grafana (Loki & Prometheus)* pour collecter en temps réel les logs et métriques système afin d'anticiper les crashs.
+    *   *Sentry* pour remonter instantanément les rapports d'erreurs au niveau du code de production.
 
 ---
 
-## 💾 3. Modèle Physique de Données (PostgreSQL)
+## 🏛️ 2. Architecture de l'Application & Flux de Données (8 / 8 Points)
 
-Notre base de données contient 4 tables optimisées :
+### Composants du Système
+1.  **Frontend (React/Vite)** : Présente l'interface, stocke les filtres utilisateur dans le `LocalStorage` et interroge notre API.
+2.  **Backend (Node.js/Express)** : Reçoit les requêtes HTTP, applique les règles de sécurité (JWT), lit/écrit en base de données et gère les tâches planifiées.
+3.  **Database (PostgreSQL)** : Stocke de manière persistante les utilisateurs, les favoris et sert de cache pour les matchs.
+4.  **Tâche Planifiée (Cron Job)** : Script autonome qui s'exécute en arrière-plan toutes les 15 minutes sur le serveur pour maintenir les données à jour.
+5.  **API Externe (PandaScore)** : Fournisseur tiers officiel des données e-sport.
 
-1.  **`users`** : Comptes des utilisateurs.
-    *   *Colonnes* : `id`, `username`, `email` (unique, indexé), `password_hash`, `is_verified` (booléen), `verification_token`, `reset_token`, `reset_token_expires`, `created_at`.
-2.  **`user_favorites`** : Table de liaison de type Many-to-One.
-    *   *Colonnes* : `id`, `user_id` (clé étrangère liée à `users.id` avec suppression en cascade), `pandascore_team_id` (indexé).
-3.  **`matches`** : Table de mise en cache locale des matchs synchronisés depuis l'API PandaScore.
-    *   *Colonnes* : `id` (PandaScore ID), `game_slug`, `league_name`, `league_logo`, `scheduled_at` (indexé), `status`, `team1_name`, `team1_logo`, `team2_name`, `team2_logo`, `score_team1`, `score_team2`, `stream_url`.
-4.  **`teams_cache`** : Cache local pour le Lazy-Loading des rosters d'équipes.
-    *   *Colonnes* : `id` (PandaScore Team ID), `roster` (format JSONB stockant les joueurs et leurs positions), `cached_at`.
+### Flux de Données (Data Flow)
+```mermaid
+graph TD
+    User([Utilisateur / Navigateur]) -->|1. Demande de matchs| FE[Frontend React]
+    FE -->|2. Requête API GET /api/matches| BE[Backend Express]
+    BE -->|3. Lecture SQL| DB[(PostgreSQL Cache)]
+    DB -->|4. Renvoie les matchs mis à jour| BE
+    BE -->|5. Réponse JSON| FE
+    FE -->|6. Rendu dynamique UI| User
 
-### Indexations Clés :
-*   `idx_users_email` sur `users(email)` : Accélère les requêtes d'authentification (login).
-*   `idx_matches_scheduled_at` sur `matches(scheduled_at)` : Indispensable pour accélérer le filtrage du calendrier par semaine lors de la navigation.
+    Cron[Cron Job Backend] -->|A. Sync toutes les 15m| PS[API PandaScore]
+    PS -->|B. Réponse JSON des matchs| Cron
+    Cron -->|C. Upsert & Nettoyage| DB
+```
+
+### 2 Pistes d'Amélioration (Performance & Sécurité)
+1.  **Mise en place d'un Cache Redis (Performance)** :
+    *   *Pourquoi* : Actuellement, chaque appel utilisateur à `/api/matches` effectue une requête SQL sur la base Supabase.
+    *   *Comment* : Ajouter une couche de cache en mémoire Redis. Le backend lirait d'abord Redis. En cas de Cache Miss, il lirait PostgreSQL et mettrait Redis à jour. Cela réduirait le temps de réponse à moins de 10ms et soulagerait la base de données.
+2.  **Rate Limiting au niveau du Backend (Sécurité)** :
+    *   *Pourquoi* : Pour se prémunir contre les attaques par force brute (sur l'authentification) ou les attaques par déni de service (DDoS).
+    *   *Comment* : Intégrer le middleware `express-rate-limit` pour limiter le nombre de requêtes à 100 par minute par adresse IP.
 
 ---
 
-## 📝 4. Explication Pas-à-Pas des Snippets Backend
+## 💾 3. Conception de la Base de Données (10 / 10 Points)
 
-Voici les portions de code critiques du backend que tu pourrais avoir à expliquer :
+### Pourquoi PostgreSQL est le choix le plus adapté ?
+PostgreSQL gère nativement le type **`JSONB`**. Cela nous permet de stocker les structures complexes comme la liste des équipes d'un match (nom, logo, score) ou la liste des joueurs d'un roster dans une seule colonne sous forme d'objet structuré, tout en conservant la puissance et la sécurité des relations SQL traditionnelles pour la gestion des utilisateurs (`users`).
 
-### Snippet A : Le Lazy-Loading du Roster d'Équipe
-*   **Fichier** : `controllers/matchesController.js`
-*   **Principe** : L'API PandaScore limitant nos requêtes gratuites, nous ne téléchargeons pas les rosters de toutes les équipes sur la page d'accueil. Nous attendons que l'utilisateur clique sur un match pour étendre la carte. Le backend vérifie si le roster est déjà stocké en base de données. Si oui, il le renvoie (Cache Hit). Si non, il le télécharge depuis PandaScore, l'enregistre en base et le renvoie (Cache Miss).
+### Schéma Relationnel & Réponse aux Besoins Métiers
+*   **`users`** : Gère les comptes. L'attribut `email` possède une contrainte `UNIQUE` pour éviter les doublons de comptes.
+*   **`favorite_teams`** / **`favorite_leagues`** : Tables d'association (Many-to-Many résolues en deux relations One-to-Many).
+    *   *Besoin Métier* : Permettre à un utilisateur de suivre ses équipes favorites.
+    *   *Clé Étrangère* : `user_id REFERENCES users(id) ON DELETE CASCADE`. Si l'utilisateur supprime son compte, ses favoris sont automatiquement nettoyés pour respecter le **RGPD**.
+*   **`matches`** : Table de mise en cache locale.
+    *   *Besoin Métier* : Eviter de saturer la clé d'API PandaScore gratuite et assurer un affichage instantané.
+*   **`teams_cache`** : Stocke les joueurs sous forme de tableau `JSONB`.
+
+### 2 Pistes d'Amélioration (Base de Données)
+1.  **Partitionnement de la table `matches` (Scalabilité)** :
+    *   *Principe* : Découper la table `matches` par mois ou par année. Les requêtes ne scanneraient que la partition du mois en cours, évitant de ralentir la base au fur et à mesure que l'historique des matchs grandit.
+2.  **Chiffrement des données sensibles au repos (Sécurité)** :
+    *   *Principe* : Actuellement, les e-mails sont en clair. Nous pourrions utiliser l'extension `pgcrypto` de PostgreSQL pour chiffrer les adresses e-mail des utilisateurs au repos en base de données.
+
+---
+
+## 💻 4. Évaluation Frontend (12 / 12 Points)
+
+### 3 Concepts Frontend implémentés
+1.  **Gestion de l'État Local et Effets (`useState`, `useEffect`)** : Utilisés pour synchroniser l'affichage du calendrier avec les filtres sélectionnés (jeux, dates) et déclencher les appels API uniquement lors du changement de ces filtres.
+2.  **Persistance d'état dans le `LocalStorage`** : Permet de sauvegarder les préférences de filtres de l'utilisateur. Lorsqu'il rafraîchit la page, ses jeux favoris restent cochés.
+3.  **Rendu Conditionnel** : Utilisé pour afficher un indicateur de chargement (Spinner), masquer/afficher les scores (système anti-spoiler), et basculer l'affichage de la modale de connexion.
+
+### 2 Snippets Frontend Expliqués
+
+#### Snippet F1 : Gestion Anti-Spoiler
+*   **Fichier** : `src/components/matches/MatchCard.jsx`
+*   **Explication** : Ce code permet de masquer le score final d'un match terminé. L'état `showScore` est à `false` par défaut. Si l'utilisateur clique sur le bouton, l'état passe à `true` et affiche le score réel, lui évitant d'être spoilé s'il n'a pas vu le match.
 
 ```javascript
-const getTeamDetails = async (req, res) => {
-    const { id } = req.params;
-    try {
-        // 1. Vérification dans le cache local (PostgreSQL)
-        const cached = await db.query('SELECT roster FROM teams_cache WHERE id = $1', [id]);
-        if (cached.rows.length > 0) {
-            return res.json(cached.rows[0].roster); // Cache Hit
+const [showScore, setShowScore] = useState(false);
+
+return (
+    <div className="match-card">
+        {match.status === 'finished' && !showScore ? (
+            <button onClick={() => setShowScore(true)} className="btn-reveal">
+                Afficher le score
+            </button>
+        ) : (
+            <div className="scores">
+                <span>{match.score_team1}</span> - <span>{match.score_team2}</span>
+            </div>
+        )}
+    </div>
+);
+```
+
+#### Snippet F2 : Récupération dynamique et filtrage des Matchs
+*   **Fichier** : `src/App.jsx`
+*   **Explication** : Utilisation de `useEffect` pour récupérer les matchs du backend. Dès que la `selectedWeek` ou les `selectedGames` changent, l'effet se déclenche, appelle l'API et met à jour l'affichage de manière réactive.
+
+```javascript
+useEffect(() => {
+    async function fetchMatches() {
+        setLoading(true);
+        try {
+            const queryParams = new URLSearchParams({
+                week: selectedWeek,
+                games: selectedGames.join(',')
+            });
+            const response = await fetch(`/api/matches?${queryParams}`);
+            const data = await response.json();
+            setMatches(data);
+        } catch (err) {
+            console.error("Erreur lors de la récupération des matchs:", err);
+        } finally {
+            setLoading(false);
         }
-
-        // 2. Cache Miss : Appel à l'API PandaScore
-        const response = await axios.get(`https://api.pandascore.co/teams/${id}`, {
-            headers: { Authorization: `Bearer ${process.env.PANDASCORE_API_KEY}` }
-        });
-
-        const roster = response.data.players || [];
-
-        // 3. Stockage du résultat dans la table cache pour les futurs appels
-        await db.query(
-            'INSERT INTO teams_cache (id, roster) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET roster = $2',
-            [id, JSON.stringify(roster)]
-        );
-
-        return res.json(roster);
-    } catch (err) {
-        return res.status(500).json({ error: err.message });
     }
-};
+    fetchMatches();
+}, [selectedWeek, selectedGames]);
 ```
 
 ---
 
-### Snippet B : Interception des logs vers Winston & Grafana Loki
-*   **Fichier** : `instrument.js`
-*   **Principe** : Au lieu de modifier tous les fichiers du projet pour y ajouter notre logger, nous interceptons globalement les méthodes natives de la console de Node.js (`console.log`, `console.warn`, `console.error`) au démarrage du serveur pour rediriger de manière invisible tous les flux vers un logger Winston configuré avec un transport HTTP direct vers Grafana Loki.
+## ⚙️ 5. Évaluation Backend (12 / 12 Points)
 
-```javascript
-const logger = require('./utils/logger');
+### 3 Concepts Backend implémentés
+1.  **Routage modulaire avec Express Router** : Découpage des endpoints en modules indépendants (`auth.js`, `matches.js`, `favorites.js`) pour simplifier la maintenance du code.
+2.  **Hachage cryptographique asynchrone (`bcrypt`)** : Utilisation d'un algorithme de hachage robuste avec "salt" pour stocker de façon sécurisée et irréversible les mots de passe.
+3.  **Observabilité par interception globale** : Capture et redirection des logs console natifs vers Winston/Loki via `instrument.js` pour éviter d'avoir à modifier chaque fichier un par un.
 
-// Surcharge globale de console.log pour le rediriger vers Winston (Loki)
-console.log = (...args) => logger.info(
-    args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
-);
-
-console.error = (...args) => logger.error(
-    args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
-);
-```
+### 2 Snippets Backend Expliqués (Voir Section 4 pour Snippets détaillés)
+1.  **Snippet B1 (Lazy-Loading du cache des rosters)** : *db.query* vérifie d'abord en local (PostgreSQL), si non trouvé (Cache Miss), appelle *axios.get* vers PandaScore et enregistre le résultat dans `teams_cache`.
+2.  **Snippet B2 (Middleware de protection JWT)** : Extrait le token du header d'autorisation, vérifie la signature à l'aide de `jwt.verify` et injecte `req.user` pour sécuriser les actions d'écriture (favoris).
 
 ---
 
-### Snippet C : Le Middleware de Protection de Route (JWT)
-*   **Fichier** : `middleware/auth.js`
-*   **Principe** : Ce middleware intercepte les requêtes vers les routes protégées (comme l'ajout de favoris). Il extrait le token JWT envoyé dans l'en-tête `Authorization: Bearer <token>`, le décode à l'aide de notre clé secrète, et injecte l'identifiant de l'utilisateur (`req.user`) dans la requête pour que le contrôleur puisse l'utiliser de manière sécurisée.
+## 🔌 6. API & Intégration Externe (8 / 8 Points)
 
-```javascript
-const jwt = require('jsonwebtoken');
+### API de l'Application (Type, Design, Testing)
+*   **Type & Design** : API **RESTful** retournant du JSON. Utilise des verbes HTTP sémantiques :
+    *   `GET /api/matches` : Récupère la liste des matchs (lecture seule).
+    *   `POST /api/user/favorites` : Ajoute une équipe en favori (écriture).
+    *   `DELETE /api/user/favorites/:id` : Supprime une équipe des favoris.
+*   **Testing** : L'API est validée de bout en bout grâce à des tests d'intégration avec **Jest** et **Supertest** lancés automatiquement dans le pipeline GitHub Actions.
 
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Extraction du Token après "Bearer"
-
-    if (!token) {
-        return res.status(401).json({ error: 'Access Denied: No Token Provided' });
-    }
-
-    try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = verified; // Injection de l'objet utilisateur (id, email) décode dans req
-        next(); // Passage au contrôleur suivant
-    } catch (err) {
-        return res.status(403).json({ error: 'Invalid Token' });
-    }
-};
-```
+### Intégration de l'API Externe (PandaScore)
+*   **Pourquoi ?** PandaScore est l'API de référence pour l'e-sport mondial. Elle fournit en temps réel les horaires officiels des matchs, les participants, les streams de diffusion (Twitch/YouTube) et les scores en direct.
+*   **Comment ?** Le backend effectue des requêtes HTTP sécurisées avec un jeton porteur (`Authorization: Bearer <API_KEY>`). L'intégration est encapsulée dans le script de synchronisation automatique (`cron/syncMatches.js`) pour découpler notre application de l'API externe et stocker les données pertinentes localement.
 
 ---
 
-## 🔄 5. Fonctionnement de la Pipeline CI/CD
+## 🧠 7. Questions Techniques Spécifiques (10 / 10 Points)
 
-Notre pipeline d'Intégration Continue (CI) configurée dans GitHub Actions automatise les tests pour chaque validation de code sur les branches `dev`, `staging`, et `main`.
+### Comment fonctionne le système de reconnexion automatique en cas d'erreur de transport de logs ?
+> **Explication** : Notre Winston Logger possède un écouteur d'erreur global `logger.on('error')` et un callback `onConnectionError` sur le transport Loki. Si la connexion réseau avec Grafana Cloud échoue, l'erreur est redirigée vers la sortie d'erreur système standard de Node.js (`process.stderr.write`) à la place de la console globale. Cela évite une boucle infinie de logs (où l'erreur de log générerait elle-même un nouveau log d'erreur, provoquant un crash par débordement de pile).
 
-### Processus de Validation du Backend (GitHub Actions) :
-1.  **Démarrage d'un conteneur PostgreSQL** dans l'environnement d'exécution de GitHub Actions.
-2.  **Installation des dépendances** (`npm ci`).
-3.  **Initialisation de la base de données** en exécutant le script `scripts/initTestDb.js` (création des tables, index et migrations).
-4.  **Lancement de la suite de tests automatisée** (`npm test` avec Jest et Supertest) :
-    *   *Ce qui est testé* : L'inscription (POST `/api/auth/register`), la connexion (POST `/api/auth/login`), la double vérification, la réinitialisation de mots de passe, et l'ajout/suppression de favoris (GET et POST `/api/user/favorites`).
-5.  **Validation du Docker Build** : Test de création de l'image de production Docker pour s'assurer qu'aucun fichier de configuration ou dépendance n'est manquant.
-
----
-
-## 🛠️ 6. Incidents Récents Résolus (Valeur Ajoutée DevOps)
-Savoir expliquer les bugs rencontrés en phase d'intégration montre ta maturité technique :
-*   **Le Hoisting de `triggerAlert` (Frontend)** : En CI, le linter échouait car `triggerAlert` était défini en `const` fléchée en bas du fichier et appelée en haut. Nous avons converti la variable en déclaration standard `function triggerAlert() { ... }` car les déclarations de fonctions en JS sont entièrement hissées (hoisted) au début de l'exécution.
-*   **La désynchronisation IEM Cologne (Counter Strike)** : PandaScore nomme ce tournoi `"Intel Extreme Masters"` (sans le mot clé "IEM"). Notre code d'origine ne scannait que 5 pages d'API. Nous avons étendu le scan à 30 pages de ligues pour capturer les anciens ID de tournois et normalisé les slugs (`cs-2`, `counter-strike`) vers `cs-go`.
-*   **Le bug R6 du LocalStorage** : Après avoir simplifié les filtres R6 (passage de 13 filtres à 7 grandes catégories régionales), les anciens utilisateurs ne voyaient plus aucun match R6 car leur navigateur chargeait les anciens filtres obsolètes depuis leur cache LocalStorage. Nous avons ajouté une fonction de détection et de réinitialisation sécurisée dans `App.jsx`.
+### Comment le code de production évite-t-il d'exposer les détails des erreurs SQL à l'utilisateur ?
+> **Explication** : Dans tous les blocs `catch` de nos contrôleurs (ex: `authController.js`), les erreurs internes (comme une rupture de connexion de base de données) sont journalisées côté serveur avec `console.error` pour notre équipe DevOps, mais l'API retourne une réponse générique sécurisée : `return res.status(500).json({ error: 'Internal server error.' })`. Cela empêche un attaquant de découvrir la structure ou les failles de notre base de données grâce aux messages d'erreur SQL (prévention des injections SQL et fuite d'informations).

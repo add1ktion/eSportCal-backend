@@ -389,16 +389,26 @@ async function googleCallback(req, res) {
 
         // Fetch user favorites
         const favResult = await db.query(
-            `SELECT pandascore_team_id FROM favorite_teams WHERE user_id = $1 LIMIT 1`,
+            `SELECT f.pandascore_team_id, 
+                    COALESCE(t.name, (
+                        SELECT team->>'name' 
+                        FROM matches, jsonb_array_elements(teams) AS team 
+                        WHERE (team->>'id')::int = f.pandascore_team_id 
+                        LIMIT 1
+                    )) AS team_name
+             FROM favorite_teams f
+             LEFT JOIN teams_cache t ON t.id = f.pandascore_team_id
+             WHERE f.user_id = $1
+             LIMIT 1`,
             [user.id]
         );
-        const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;
+        const favoriteTeam = favResult.rows[0]?.team_name || '';
 
         const userJson = encodeURIComponent(JSON.stringify({
             id: user.id,
             username: user.username,
             email: user.email,
-            favoriteTeamId
+            favoriteTeam
         }));
 
         const clientUrl = process.env.CLIENT_URL || 'http://localhost';
@@ -489,16 +499,26 @@ async function twitchCallback(req, res) {
 
         // Fetch user favorites
         const favResult = await db.query(
-            `SELECT pandascore_team_id FROM favorite_teams WHERE user_id = $1 LIMIT 1`,
+            `SELECT f.pandascore_team_id, 
+                    COALESCE(t.name, (
+                        SELECT team->>'name' 
+                        FROM matches, jsonb_array_elements(teams) AS team 
+                        WHERE (team->>'id')::int = f.pandascore_team_id 
+                        LIMIT 1
+                    )) AS team_name
+             FROM favorite_teams f
+             LEFT JOIN teams_cache t ON t.id = f.pandascore_team_id
+             WHERE f.user_id = $1
+             LIMIT 1`,
             [user.id]
         );
-        const favoriteTeamId = favResult.rows[0]?.pandascore_team_id || null;
+        const favoriteTeam = favResult.rows[0]?.team_name || '';
 
         const userJson = encodeURIComponent(JSON.stringify({
             id: user.id,
             username: user.username,
             email: user.email,
-            favoriteTeamId
+            favoriteTeam
         }));
 
         const clientUrl = process.env.CLIENT_URL || 'http://localhost';

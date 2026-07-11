@@ -120,10 +120,60 @@ async function getUniqueTeams(req, res) {
                 team->>'image_url' AS logo 
             FROM matches, 
             jsonb_array_elements(teams) AS team 
-            WHERE team->>'name' IS NOT NULL 
-            ORDER BY name ASC;
+            WHERE team->>'id' IS NOT NULL 
+              AND team->>'name' IS NOT NULL 
+              AND team->>'image_url' IS NOT NULL AND team->>'image_url' <> '';
         `);
-        res.json(result.rows);
+
+        const teamsList = result.rows;
+        const uniqueTeamsMap = new Map();
+
+        // Keywords that identify secondary/academy/female/qualifier teams to exclude
+        const excludeKeywords = [
+            'academy', 'acad', 'young', 'youth', 'junior', 'female', ' fe', 
+            'interim', 'challengers', 'prospects', 'girls', 'challenger',
+            'nebula', ' gc', 'game changers', 'gamechanger', 'valkyries', 'rising', 
+            'eclipse', '.bee', 'bee'
+        ];
+
+        for (const t of teamsList) {
+            const nameLower = t.name.toLowerCase();
+
+            // 1. Filter out secondary/academy team variants
+            if (excludeKeywords.some(kw => nameLower.includes(kw))) {
+                continue;
+            }
+
+            // 2. Normalize name by stripping common prefixes and suffixes
+            const nameClean = nameLower
+                .replace(/\s+/g, ' ')
+                .trim()
+                .replace(/^(team |l'|the )/i, '')
+                .replace(/( esports| gaming| club| team| active| inactive| main)$/i, '')
+                .trim();
+
+            // 3. Group by the first token of the organization name to merge all sub-brands/variants
+            const orgKey = nameClean.split(/[\s.\-_/]+/)[0];
+
+            if (!orgKey) continue;
+
+            if (!uniqueTeamsMap.has(orgKey)) {
+                uniqueTeamsMap.set(orgKey, t);
+            } else {
+                const existing = uniqueTeamsMap.get(orgKey);
+                // Prefer the shorter/cleaner name as the main representative
+                if (t.name.length < existing.name.length) {
+                    uniqueTeamsMap.set(orgKey, t);
+                }
+            }
+        }
+
+        // Convert map back to array and sort alphabetically by name
+        const finalTeams = Array.from(uniqueTeamsMap.values()).sort((a, b) => 
+            a.name.localeCompare(b.name)
+        );
+
+        res.json(finalTeams);
     } catch (error) {
         console.error('Error fetching unique teams from matches cache:', error.stack);
         res.status(500).json({ error: 'Failed to fetch unique teams' });

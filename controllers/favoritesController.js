@@ -53,7 +53,23 @@ async function getUserFavorites(req, res) {
 
     try {
         const result = await db.query(
-            'SELECT * FROM favorite_teams WHERE user_id = $1 ORDER BY created_at DESC',
+            `SELECT f.pandascore_team_id, 
+                    COALESCE(t.name, (
+                        SELECT team->>'name' 
+                        FROM matches, jsonb_array_elements(teams) AS team 
+                        WHERE (team->>'id')::int = f.pandascore_team_id 
+                        LIMIT 1
+                    )) AS team_name,
+                    COALESCE(t.image_url, (
+                        SELECT team->>'image_url' 
+                        FROM matches, jsonb_array_elements(teams) AS team 
+                        WHERE (team->>'id')::int = f.pandascore_team_id 
+                        LIMIT 1
+                    )) AS team_logo
+             FROM favorite_teams f
+             LEFT JOIN teams_cache t ON t.id = f.pandascore_team_id
+             WHERE f.user_id = $1
+             ORDER BY f.created_at DESC`,
             [userId]
         );
 

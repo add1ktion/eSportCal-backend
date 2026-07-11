@@ -114,21 +114,57 @@ async function contactUs(req, res) {
 async function getUniqueTeams(req, res) {
     try {
         const result = await db.query(`
-            SELECT * FROM (
-                SELECT DISTINCT ON (LOWER(team->>'name'))
-                    (team->>'id')::int AS id, 
-                    team->>'name' AS name, 
-                    team->>'image_url' AS logo 
-                FROM matches, 
-                jsonb_array_elements(teams) AS team 
-                WHERE team->>'id' IS NOT NULL 
-                  AND team->>'name' IS NOT NULL 
-                  AND team->>'image_url' IS NOT NULL AND team->>'image_url' <> ''
-                ORDER BY LOWER(team->>'name') ASC
-            ) AS unique_teams
-            ORDER BY name ASC;
+            SELECT DISTINCT 
+                (team->>'id')::int AS id, 
+                team->>'name' AS name, 
+                team->>'image_url' AS logo 
+            FROM matches, 
+            jsonb_array_elements(teams) AS team 
+            WHERE team->>'id' IS NOT NULL 
+              AND team->>'name' IS NOT NULL 
+              AND team->>'image_url' IS NOT NULL AND team->>'image_url' <> '';
         `);
-        res.json(result.rows);
+
+        const teamsList = result.rows;
+        const uniqueTeamsMap = new Map();
+
+        // Keywords that identify secondary/academy/female/qualifier teams to exclude
+        const excludeKeywords = [
+            'academy', 'acad', 'young', 'youth', 'junior', 'female', ' fe', 
+            'interim', 'challengers', 'prospects', 'girls', 'challenger'
+        ];
+
+        for (const t of teamsList) {
+            const nameLower = t.name.toLowerCase();
+
+            // 1. Filter out secondary/academy team variants
+            if (excludeKeywords.some(kw => nameLower.includes(kw))) {
+                continue;
+            }
+
+            // 2. Normalize name by stripping common suffixes to merge duplicates
+            const normalized = nameLower
+                .replace(/\s+/g, ' ')
+                .trim()
+                .replace(/( esports| gaming| club| team| active| inactive| main)$/i, '')
+                .trim();
+
+            if (!uniqueTeamsMap.has(normalized)) {
+                uniqueTeamsMap.set(normalized, t);
+            } else {
+                const existing = uniqueTeamsMap.get(normalized);
+                if (t.name.length < existing.name.length) {
+                    uniqueTeamsMap.set(normalized, t); // Prefer shorter name (e.g. "Aurora" over "Aurora Gaming")
+                }
+            }
+        }
+
+        // Convert map back to array and sort alphabetically by name
+        const finalTeams = Array.from(uniqueTeamsMap.values()).sort((a, b) => 
+            a.name.localeCompare(b.name)
+        );
+
+        res.json(finalTeams);
     } catch (error) {
         console.error('Error fetching unique teams from matches cache:', error.stack);
         res.status(500).json({ error: 'Failed to fetch unique teams' });

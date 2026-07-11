@@ -1,20 +1,23 @@
 // backend/controllers/favoritesController.js
 const db = require('../db');
-
 // POST /api/user/favorites
 async function addFavoriteTeam(req, res) {
     const { pandascore_team_id } = req.body;
     const userId = req.user.userId;
 
     try {
+        // Clear any existing favorite team for the user (Option A)
+        await db.query('DELETE FROM favorite_teams WHERE user_id = $1', [userId]);
+
+        // Insert the new favorite team
         const result = await db.query(
-            'INSERT INTO favorite_teams (user_id, pandascore_team_id) VALUES ($1, $2) ON CONFLICT (user_id, pandascore_team_id) DO NOTHING RETURNING *',
+            'INSERT INTO favorite_teams (user_id, pandascore_team_id) VALUES ($1, $2) RETURNING *',
             [userId, pandascore_team_id]
         );
 
         res.status(201).json({ 
             message: "Équipe favorite ajoutée avec succès.",
-            favorite: result.rows[0] || { user_id: userId, pandascore_team_id }
+            favorite: result.rows[0]
         });
     } catch (error) {
         console.error('Error adding favorite:', error);

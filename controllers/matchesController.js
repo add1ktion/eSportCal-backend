@@ -144,20 +144,26 @@ async function getUniqueTeams(req, res) {
                 continue;
             }
 
-            // 2. Normalize name by stripping common prefixes and suffixes to merge duplicates
-            const normalized = nameLower
+            // 2. Normalize name by stripping common prefixes and suffixes
+            const nameClean = nameLower
                 .replace(/\s+/g, ' ')
                 .trim()
                 .replace(/^(team |l'|the )/i, '')
                 .replace(/( esports| gaming| club| team| active| inactive| main)$/i, '')
                 .trim();
 
-            if (!uniqueTeamsMap.has(normalized)) {
-                uniqueTeamsMap.set(normalized, t);
+            // 3. Group by the first token of the organization name to merge all sub-brands/variants
+            const orgKey = nameClean.split(/[\s.\-_/]+/)[0];
+
+            if (!orgKey) continue;
+
+            if (!uniqueTeamsMap.has(orgKey)) {
+                uniqueTeamsMap.set(orgKey, t);
             } else {
-                const existing = uniqueTeamsMap.get(normalized);
+                const existing = uniqueTeamsMap.get(orgKey);
+                // Prefer the shorter/cleaner name as the main representative
                 if (t.name.length < existing.name.length) {
-                    uniqueTeamsMap.set(normalized, t); // Prefer shorter name
+                    uniqueTeamsMap.set(orgKey, t);
                 }
             }
         }

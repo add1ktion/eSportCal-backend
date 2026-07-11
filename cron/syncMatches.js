@@ -3,13 +3,12 @@ const cron = require('node-cron');
 const axios = require('axios');
 const db = require('../db');
 
-// Whitelist of leagues we are keeping across all 5 games (case-insensitive checks)
 const LEAGUE_WHITELIST = {
-    'league-of-legends': ['LEC', 'LCS', 'LCK', 'LPL', 'Worlds', 'First Stand', 'MSI', 'EMEA Masters', 'LFL'],
-    'valorant': ['VCT', 'VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters'],
-    'cs-go': ['PGL', 'IEM', 'Intel Extreme Masters', 'ESL Pro League', 'ESL One', 'ESL', 'Blast'],
-    'dota-2': ['The International', 'Dream League', 'DreamLeague', 'ESL One', 'PGL Wallachia'],
-    'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major', 'Europe League', 'Brazil League', 'Japan League', 'South Korea League', 'LATAM League', 'Oceania League']
+    'league-of-legends': ['LEC', 'LCS', 'LCK', 'LPL', 'Worlds', 'First Stand', 'MSI', 'EMEA Masters', 'LFL', 'EWC', 'Esports World Cup'],
+    'valorant': ['VCT', 'VCT EMEA', 'VCT Americas', 'VCT Pacific', 'VCT CN', 'Valorant Champions', 'VCT Masters', 'EWC', 'Esports World Cup'],
+    'cs-go': ['PGL', 'IEM', 'Intel Extreme Masters', 'ESL Pro League', 'ESL One', 'ESL', 'Blast', 'EWC', 'Esports World Cup'],
+    'dota-2': ['The International', 'Dream League', 'DreamLeague', 'ESL One', 'PGL Wallachia', 'EWC', 'Esports World Cup'],
+    'r6-siege': ['Europe MENA League', 'MENA League', 'North America League', 'NA League', 'Asia Pacific League', 'AP League', 'CN League', 'SA League', 'Six Invitational', 'Six Major', 'Europe League', 'Brazil League', 'Japan League', 'South Korea League', 'LATAM League', 'Oceania League', 'EWC', 'Esports World Cup']
 };
 
 const getRangeQuery = () => {

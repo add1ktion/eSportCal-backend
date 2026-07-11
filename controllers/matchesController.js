@@ -110,8 +110,29 @@ async function contactUs(req, res) {
     }
 }
 
+// GET /api/teams
+async function getUniqueTeams(req, res) {
+    try {
+        const result = await db.query(`
+            SELECT DISTINCT 
+                (team->>'id')::int AS id, 
+                team->>'name' AS name, 
+                team->>'image_url' AS logo 
+            FROM matches, 
+            jsonb_array_elements(teams) AS team 
+            WHERE team->>'name' IS NOT NULL 
+            ORDER BY name ASC;
+        `);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching unique teams from matches cache:', error.stack);
+        res.status(500).json({ error: 'Failed to fetch unique teams' });
+    }
+}
+
 module.exports = {
     getMatches,
     getTeamDetails,
-    contactUs
+    contactUs,
+    getUniqueTeams
 };

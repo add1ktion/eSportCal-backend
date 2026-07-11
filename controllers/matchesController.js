@@ -114,13 +114,15 @@ async function contactUs(req, res) {
 async function getUniqueTeams(req, res) {
     try {
         const result = await db.query(`
-            SELECT DISTINCT 
-                (team->>'id')::int AS id, 
-                team->>'name' AS name, 
-                team->>'image_url' AS logo 
-            FROM matches, 
-            jsonb_array_elements(teams) AS team 
-            WHERE team->>'name' IS NOT NULL 
+            SELECT * FROM (
+                SELECT DISTINCT ON ((team->>'id')::int)
+                    (team->>'id')::int AS id, 
+                    team->>'name' AS name, 
+                    team->>'image_url' AS logo 
+                FROM matches, 
+                jsonb_array_elements(teams) AS team 
+                WHERE team->>'id' IS NOT NULL AND team->>'name' IS NOT NULL
+            ) AS unique_teams
             ORDER BY name ASC;
         `);
         res.json(result.rows);

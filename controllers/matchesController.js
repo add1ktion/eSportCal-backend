@@ -131,7 +131,9 @@ async function getUniqueTeams(req, res) {
         // Keywords that identify secondary/academy/female/qualifier teams to exclude
         const excludeKeywords = [
             'academy', 'acad', 'young', 'youth', 'junior', 'female', ' fe', 
-            'interim', 'challengers', 'prospects', 'girls', 'challenger'
+            'interim', 'challengers', 'prospects', 'girls', 'challenger',
+            'nebula', ' gc', 'game changers', 'gamechanger', 'valkyries', 'rising', 
+            'eclipse', '.bee', 'bee'
         ];
 
         for (const t of teamsList) {
@@ -142,10 +144,11 @@ async function getUniqueTeams(req, res) {
                 continue;
             }
 
-            // 2. Normalize name by stripping common suffixes to merge duplicates
+            // 2. Normalize name by stripping common prefixes and suffixes to merge duplicates
             const normalized = nameLower
                 .replace(/\s+/g, ' ')
                 .trim()
+                .replace(/^(team |l'|the )/i, '')
                 .replace(/( esports| gaming| club| team| active| inactive| main)$/i, '')
                 .trim();
 
@@ -154,7 +157,7 @@ async function getUniqueTeams(req, res) {
             } else {
                 const existing = uniqueTeamsMap.get(normalized);
                 if (t.name.length < existing.name.length) {
-                    uniqueTeamsMap.set(normalized, t); // Prefer shorter name (e.g. "Aurora" over "Aurora Gaming")
+                    uniqueTeamsMap.set(normalized, t); // Prefer shorter name
                 }
             }
         }

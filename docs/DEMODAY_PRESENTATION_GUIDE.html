@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eSportCal — DemoDay Presentation & Q&A Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-light: #e0e7ff;
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+            --bg-main: #f9fafb;
+            --bg-card: #ffffff;
+            --border: #e5e7eb;
+            --accent: #ef4444;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --primary: #818cf8;
+                --primary-light: #312e81;
+                --text-main: #f3f4f6;
+                --text-muted: #9ca3af;
+                --bg-main: #0b0f19;
+                --bg-card: #111827;
+                --border: #374151;
+            }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-top: 40px;
+            color: var(--primary);
+        }
+
+        h3 {
+            font-size: 1.3rem;
+            margin-top: 25px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .time-badge {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .slide-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-title {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            color: var(--primary);
+        }
+
+        ul {
+            margin: 0 0 15px 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        .script-block {
+            background-color: var(--bg-main);
+            border-left: 4px solid var(--primary);
+            padding: 16px 20px;
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+            color: var(--text-main);
+            margin-top: 10px;
+        }
+
+        .qa-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 25px;
+        }
+
+        .question {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .answer {
+            background-color: var(--bg-main);
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+
+        /* Optimization for PDF Printing */
+        @media print {
+            body {
+                background-color: #ffffff;
+                color: #000000;
+                padding: 0;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .slide-card, .qa-card {
+                page-break-inside: avoid;
+                border: 1px solid #000000;
+                box-shadow: none;
+                margin-bottom: 20px;
+            }
+
+            .script-block, .answer {
+                background-color: #f3f4f6;
+                border-left: 4px solid #000000;
+            }
+
+            .time-badge {
+                border: 1px solid #000000;
+                color: #000000;
+                background-color: transparent;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>eSportCal</h1>
+            <p class="subtitle">Mock DemoDay Presentation & Q&A Master Guide</p>
+            <p style="font-size: 0.9rem; color: var(--text-muted);">Format: 10-Minute Pitch + 10-Minute Q&A (English)</p>
+        </header>
+
+        <h2>⏱️ Part 1: 10-Minute Presentation Script</h2>
+
+        <!-- Slide 1 -->
+        <div class="slide-card">
+            <h3>Slide 1: Introduction & The Problem <span class="time-badge">0:00 - 1:30</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>Project Logo: eSportCal</li>
+                <li>Subtitle: "The Ultimate Multi-Game eSports Calendar"</li>
+                <li>Presenter names and date</li>
+            </ul>
+            <div class="section-title">Actions</div>
+            <ul>
+                <li>Stand confident, maintain eye contact, and speak clearly.</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "Good morning everyone. Today, we are thrilled to present eSportCal, a platform built to solve a major problem for millions of competitive gaming fans worldwide. eSports is growing exponentially, but following your favorite teams is currently a fragmented and frustrating experience. Fans have to jump between Liquipedia, HLTV, Twitch, and various social media platforms just to know when a match is scheduled. If they check late, they get spoiled by the final scores on social media. eSportCal centralizes everything in one premium, customized, and anti-spoiler calendar dashboard."
+            </div>
+        </div>
+
+        <!-- Slide 2 -->
+        <div class="slide-card">
+            <h3>Slide 2: The Core Product & Features <span class="time-badge">1:30 - 3:00</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>High-level mockups of the platform</li>
+                <li>Key pillars: 1. Centralization, 2. Anti-Spoiler System, 3. Personalization</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "To address these pain points, we developed a modern web application designed around three key user pillars:
+                First, Centralization: We support five major competitive games—League of Legends, Counter-Strike 2, Valorant, Dota 2, and Rainbow Six Siege.
+                Second, User Experience: Match times automatically align with the user's local timezone, and we implemented an active 'anti-spoiler' feature that masks match results until clicked.
+                Third, Personalization: Users can log in using Google or Twitch to build a customized feed containing only their bookmarked teams."
+            </div>
+        </div>
+
+        <!-- Slide 3 -->
+        <div class="slide-card">
+            <h3>Slide 3: Live Demonstration <span class="time-badge">3:00 - 6:00</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>Live screen sharing of esportcal.com</li>
+            </ul>
+            <div class="section-title">Actions (To do live)</div>
+            <ul>
+                <li>Toggle filters by clicking game icons.</li>
+                <li>Navigate through the weeks.</li>
+                <li>Show a completed match card and click "Reveal Score".</li>
+                <li>Click "Login" and perform the OAuth flow.</li>
+                <li>Bookmark a team (e.g., Vitality) to show the highlight system.</li>
+                <li>Expand a match card to load the active rosters.</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "Let's dive into the live application. As you can see, the homepage displays a dark, high-contrast, premium interface.
+                First, I can filter matches by game. If I only want to see Valorant and CS2 matches, I click these filter pills, and the calendar updates instantly without any page reload.
+                For completed matches, the score is hidden. If I click 'Reveal Score', the actual result appears, preventing spoilers.
+                Now, let's log in. We integrated official Google and Twitch OAuth2 flows. With one click, I am securely logged in.
+                I can now bookmark my favorite teams, like Karmine Corp or Team Vitality. Immediately, my calendar highlights their matches, creating a tailored feed.
+                If I click on a match card, it expands to show the active team rosters, loading players dynamically."
+            </div>
+        </div>
+
+        <!-- Slide 4 -->
+        <div class="slide-card">
+            <h3>Slide 4: Technical Architecture & Data Flow <span class="time-badge">6:00 - 7:30</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>Architecture Diagram (Vite/React -> Express/Node -> Supabase PostgreSQL -> PandaScore API)</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "Behind this seamless user experience lies a robust decoupled client-server architecture.
+                On the frontend, we chose React with Vite for lightning-fast builds and rendering. The layout is built using modern CSS and Tailwind.
+                On the backend, we built a Node.js and Express API structured around the MVC pattern.
+                For the database, we chose PostgreSQL hosted on Supabase. We leverage Postgres's native JSONB data type to store structured rosters and team data directly in tables, avoiding expensive database joins and improving fetch speeds."
+            </div>
+        </div>
+
+        <!-- Slide 5 -->
+        <div class="slide-card">
+            <h3>Slide 5: Local Caching & Performance <span class="time-badge">7:30 - 8:30</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>Cache Hit vs. Cache Miss flow diagram</li>
+                <li>Cron job background schedule visualization</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "A major challenge we faced was API limits. The external PandaScore API restricts requests. To handle this, we implemented a local caching strategy:
+                Every 15 minutes, a background Cron Job on our backend synchronizes schedules from PandaScore and updates our PostgreSQL database.
+                When a user visits our app, we load data from our database—not the external API. This ensures sub-10ms response times and keeps us well under API limits.
+                For player rosters, we use Lazy Loading. The backend checks the local cache. If it is a 'Cache Miss', it fetches the roster from PandaScore once, writes it to the local cache, and returns it. Future requests get a 'Cache Hit' directly from the DB."
+            </div>
+        </div>
+
+        <!-- Slide 6 -->
+        <div class="slide-card">
+            <h3>Slide 6: CI/CD & Production Observability <span class="time-badge">8:30 - 9:30</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>GitHub Actions log snapshot</li>
+                <li>Grafana dashboard screenshot</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "As software engineers, we prioritised code quality, security, and production safety.
+                Our CI/CD Pipeline is built with GitHub Actions. On every pull request, it spawns a test PostgreSQL container, runs a suite of integration tests using Jest and Supertest, checks dependencies for security vulnerabilities using npm audit, and validates the production Docker build.
+                For Observability, we connected the backend to Grafana Cloud (using Prometheus for metrics and Loki for logs) and Sentry for real-time error tracking. If a database query fails or a connection is lost, we are alerted immediately."
+            </div>
+        </div>
+
+        <!-- Slide 7 -->
+        <div class="slide-card">
+            <h3>Slide 7: Conclusion & Roadmap <span class="time-badge">9:30 - 10:00</span></h3>
+            <div class="section-title">Visual Layout</div>
+            <ul>
+                <li>Roadmap points: Redis cache, League-wide favorites, Mobile companion app</li>
+                <li>"Thank you - Questions?"</li>
+            </ul>
+            <div class="section-title">Spoken Script</div>
+            <div class="script-block">
+                "To conclude, eSportCal successfully bridges the gap between raw eSports data and a premium, personalized user interface, all while maintaining a secure, monitored, and highly scalable production architecture. Thank you for your time, and we are now ready for your questions."
+            </div>
+        </div>
+
+        <h2>💬 Part 2: Q&A Cheat Sheet (Top expected jury questions)</h2>
+
+        <!-- Q1 -->
+        <div class="qa-card">
+            <div class="question">Q1: Why did you choose a SQL database (PostgreSQL) instead of a NoSQL database (MongoDB) since you store team arrays and rosters?</div>
+            <div class="answer">
+                "We chose PostgreSQL because our core business logic relies on strong relational integrity. We have a strict relation between users and their favorite teams or leagues. Using a relational database ensures foreign key constraints, like ON DELETE CASCADE. If a user deletes their account, all their favorites are immediately and automatically deleted, which is critical for GDPR compliance. For unstructured data like rosters or team details, PostgreSQL's native JSONB type allows us to store and query JSON documents efficiently without sacrificing relational safety."
+            </div>
+        </div>
+
+        <!-- Q2 -->
+        <div class="qa-card">
+            <div class="question">Q2: How do you secure user authentication, and how does the backend know if a request is authenticated?</div>
+            <div class="answer">
+                "We implement JWT (JSON Web Token) stateless authentication. When a user registers or logs in, the backend hashes the password using bcrypt (with a salt factor of 10) and signs a token with a secret key that expires in 7 days. For protected endpoints like managing favorites, the frontend sends this token in the Authorization: Bearer header. An Express middleware intercepts the request, calls jwt.verify(), and injects the decoded payload (req.user) into the request context. If the token is missing or invalid, the middleware blocks the request with a 401 Unauthorized status."
+            </div>
+        </div>
+
+        <!-- Q3 -->
+        <div class="qa-card">
+            <div class="question">Q3: You mentioned a Cron Job. What happens if the API sync script fails or times out in production?</div>
+            <div class="answer">
+                "The synchronization script is designed with resilience in mind. All network calls to PandaScore are wrapped in try-catch blocks. If an API call fails or times out, the error is caught, logged to Grafana Loki, and reported to Sentry. However, the application itself does not crash; our users can still navigate the calendar because we continue to serve the cached matches from our PostgreSQL database. Once the next cron cycle runs 15 minutes later, it attempts to sync again."
+            </div>
+        </div>
+
+        <!-- Q4 -->
+        <div class="qa-card">
+            <div class="question">Q4: How does your frontend handle responsiveness and state synchronization?</div>
+            <div class="answer">
+                "We use React hooks like useState to manage local UI states, such as active week filters and the spoiler toggle. To keep filters persistent across page refreshes, we synchronize the selection with the browser's LocalStorage. We fetch match data inside a useEffect hook, which lists the active filters in its dependency array. Whenever a user changes a filter, the hook automatically triggers a fetch request to the backend, ensuring the UI remains perfectly synchronized with the server state."
+            </div>
+        </div>
+
+        <!-- Q5 -->
+        <div class="qa-card">
+            <div class="question">Q5: How would you scale this application if the user base grows from 100 to 100,000 active users?</div>
+            <div class="answer">
+                "To scale the application, we would implement two major changes:
+                First, Cache Layer: Introduce a Redis cache in front of PostgreSQL. Common queries like retrieving the current week's matches would be served directly from memory, reducing database load and response times to under 10ms.
+                Second, Database Partitioning: As the matches table grows, we would partition it by month or year. This ensures PostgreSQL only scans index ranges for the relevant active week instead of the entire table history."
+            </div>
+        </div>
+
+        <!-- Q6 -->
+        <div class="qa-card">
+            <div class="question">Q6: Why did you disable batching in your Loki logging transport (batching: false)?</div>
+            <div class="answer">
+                "In production containers, low log volumes combined with container restarts can cause buffered logs to stay in memory for a long time or get lost when a container stops. By setting batching: false in our Winston Loki transport, we force the logger to send every log entry immediately via an HTTP POST request. This ensures real-time reactive monitoring on our Grafana dashboard and prevents log loss during deployments."
+            </div>
+        </div>
+    </div>
+</body>
+</html>

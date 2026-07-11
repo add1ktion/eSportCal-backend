@@ -115,13 +115,16 @@ async function getUniqueTeams(req, res) {
     try {
         const result = await db.query(`
             SELECT * FROM (
-                SELECT DISTINCT ON ((team->>'id')::int)
+                SELECT DISTINCT ON (LOWER(team->>'name'))
                     (team->>'id')::int AS id, 
                     team->>'name' AS name, 
                     team->>'image_url' AS logo 
                 FROM matches, 
                 jsonb_array_elements(teams) AS team 
-                WHERE team->>'id' IS NOT NULL AND team->>'name' IS NOT NULL
+                WHERE team->>'id' IS NOT NULL 
+                  AND team->>'name' IS NOT NULL 
+                  AND team->>'image_url' IS NOT NULL AND team->>'image_url' <> ''
+                ORDER BY LOWER(team->>'name') ASC
             ) AS unique_teams
             ORDER BY name ASC;
         `);
